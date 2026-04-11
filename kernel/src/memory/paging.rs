@@ -1,12 +1,16 @@
-use crate::{memory::alloc::Frame, panic::KernelFault};
+use crate::{
+    memory::alloc::{Frame, MemoryFault},
+    panic::KernelFault,
+};
 
 pub const PAGE_SIZE: usize = 0x1000;
 
+#[derive(Debug)]
 pub enum PageFault {
     AlreadyMapped,
     Unmapped,
     InvalidAddress(usize),
-    OutOfFrames,
+    OutOfFrames(MemoryFault),
 }
 
 impl From<PageFault> for KernelFault {
@@ -35,7 +39,7 @@ impl Page {
 pub trait Mapper {
     type PageFlags;
 
-    fn map(&mut self, page: Page, frame: Frame, flags: Self::PageFlags) -> Result<(), PageFault>;
+    fn map(&mut self, page: Page, frame: Frame, flags: Self::PageFlags) -> Result<(), KernelFault>;
 
     fn unmap(&mut self, page: Page) -> Result<(), PageFault>;
 }

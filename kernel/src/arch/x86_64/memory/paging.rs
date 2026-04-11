@@ -1,9 +1,12 @@
 use bitflags::bitflags;
 use spin::{Mutex, Once};
 
-use crate::memory::{
-    alloc::Frame,
-    paging::{Mapper, Page, PageFault},
+use crate::{
+    memory::{
+        alloc::Frame,
+        paging::{Mapper, Page, PageFault},
+    },
+    panic::KernelFault,
 };
 
 pub const TABLE_ENTRIES: usize = 0x200;
@@ -98,12 +101,12 @@ impl X86Mapper {
         unsafe { &mut *table_ptr }
     }
 
-    fn ensure_table(entry: &mut PageTableEntry) -> &'static mut PageTable {
+    fn ensure_table(entry: &mut PageTableEntry) -> Result<&'static mut PageTable, KernelFault> {
         if !entry.is_present() {
-            let frame = crate::memory::phys::frame_allocator()
+            let frame = crate::memory::phys::frame_allocator()?
                 .lock()
                 .alloc()
-                .expect("Out of memory allocating page table");
+                .map_err(|err| PageFault::OutOfFrames(err))?;
 
             let table = frame.addr() as *mut PageTable;
 
@@ -114,24 +117,24 @@ impl X86Mapper {
             entry.set(frame.addr(), PageFlags::PRESENT | PageFlags::WRITABLE);
         }
 
-        Self::next_table(entry)
+        Ok(Self::next_table(entry))
     }
 }
 
 impl Mapper for X86Mapper {
     type PageFlags = PageFlags;
 
-    fn map(&mut self, page: Page, frame: Frame, flags: PageFlags) -> Result<(), PageFault> {
+    fn map(&mut self, page: Page, frame: Frame, flags: PageFlags) -> Result<(), KernelFault> {
         let pml4e = &mut self.pml4.entries[page.pml4_index()];
         let pdpt = Self::ensure_table(pml4e);
 
-        let pdpte = &mut pdpt.entries[page.pdpt_index()];
+        let pdpte = &mut pdpt?.entries[page.pdpt_index()];
         let pd = Self::ensure_table(pdpte);
 
-        let pde = &mut pd.entries[page.pd_index()];
+        let pde = &mut pd?.entries[page.pd_index()];
         let pt = Self::ensure_table(pde);
 
-        let pte = &mut pt.entries[page.pt_index()];
+        let pte = &mut pt?.entries[page.pt_index()];
 
         pte.set(frame.addr(), flags | PageFlags::PRESENT);
 
@@ -157,8 +160,8 @@ pub fn mapper() -> &'static Mutex<X86Mapper> {
     MAPPER.get().expect("Mapper not initialized")
 }
 
-pub fn allocate_pml4() -> &'static mut PageTable {
-    let frame = crate::memory::phys::frame_allocator()
+pub fn allocate_pml4() -> Result<&'static mut PageTable, KernelFault> {
+    let frame = crate::memory::phys::frame_allocator()?
         .lock()
         .alloc()
         .expect("Failed to allocate PML4");
@@ -167,5 +170,5 @@ pub fn allocate_pml4() -> &'static mut PageTable {
 
     pml4.zero();
 
-    pml4
+    Ok(pml4)
 }

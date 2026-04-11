@@ -8,6 +8,7 @@ pub enum MemoryFault {
     DoubleAllocation { idx: usize },
     DoubleFree { idx: usize },
     OutOfMemory,
+    NoAllocator,
 }
 
 impl From<MemoryFault> for KernelFault {

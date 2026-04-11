@@ -1,7 +1,7 @@
 use spin::{Mutex, Once};
 
 use crate::memory::{
-    alloc::FrameAllocator,
+    alloc::{FrameAllocator, MemoryFault},
     regions::{MemMap, MemoryRegionKind},
 };
 
@@ -17,30 +17,28 @@ static FRAME_BITMAP: BitmapStorage = BitmapStorage(UnsafeCell::new([0; MAX_BITMA
 
 static FRAME_ALLOCATOR: Once<Mutex<FrameAllocator>> = Once::new();
 
-pub fn frame_allocator() -> &'static Mutex<FrameAllocator> {
-    FRAME_ALLOCATOR
-        .get()
-        .expect("Frame allocator not initialized")
+pub fn frame_allocator() -> Result<&'static Mutex<FrameAllocator>, MemoryFault> {
+    FRAME_ALLOCATOR.get().ok_or(MemoryFault::NoAllocator)
 }
 
-pub fn init(mem_map: MemMap) {
+pub fn init(mem_map: MemMap) -> Result<(), MemoryFault> {
     let allocator =
         unsafe { FrameAllocator::new(&mut *FRAME_BITMAP.0.get(), mem_map.total_mem_size) };
 
     FRAME_ALLOCATOR.call_once(|| Mutex::new(allocator));
 
-    reserve_non_usable(mem_map);
+    reserve_non_usable(mem_map)
 }
 
-fn reserve_non_usable(mem_map: MemMap) {
+fn reserve_non_usable(mem_map: MemMap) -> Result<(), MemoryFault> {
     let alloc = FRAME_ALLOCATOR.get().unwrap();
     let mut alloc = alloc.lock();
 
     for region in mem_map.regions.iter().take(mem_map.count) {
         if !matches!(region.kind, MemoryRegionKind::Usable) {
-            alloc
-                .reserve_range(region.base, region.base + region.length - 1)
-                .expect("Failed to reserve memory region");
+            alloc.reserve_range(region.base, region.base + region.length - 1)?;
         }
     }
+
+    Ok(())
 }

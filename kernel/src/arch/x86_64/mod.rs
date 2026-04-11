@@ -31,7 +31,7 @@ impl Architecture for X86_64 {
         println!("  [.] Initializing paging...");
 
         let pml4 = memory::paging::allocate_pml4();
-        memory::paging::init(pml4);
+        memory::paging::init(pml4.expect("  [!] Fault at paging initialization"));
 
         println!("  [*] Paging initialized.");
     }
