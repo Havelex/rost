@@ -1,0 +1,16 @@
+[package]
+name = "x86_64"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+kernel = {path = "../../kernel/"}
+
+[[bin]]
+name = "x86_64"
+path = "src/main.rs"
+test = false
+bench = false
+
+[build]
+target = "../../targets/x86_64-rost.json"

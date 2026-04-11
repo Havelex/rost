@@ -1,0 +1,9 @@
+{
+  "llvm-target": "aarch64-unknown-none",
+  "arch": "aarch64",
+  "os": "none",
+  "vendor": "unknown",
+  "linker-flavor": "ld.lld",
+  "executables": true,
+  "panic-strategy": "abort"
+}

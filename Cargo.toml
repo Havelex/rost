@@ -1,0 +1,16 @@
+[workspace]
+members = [
+    "kernel",
+    "arch/x86_64",
+    "arch/aarch64",
+    "userland/shell",
+    "userland/init"
+]
+
+resolver = "2"
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"

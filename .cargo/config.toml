@@ -1,0 +1,5 @@
+[target.x86_64-rost]
+runner = "qemu-system-x86_64 -kernel"
+rustflags = [
+  "-C", "link-arg=-Tarch/x86_64/linker.ld",
+]

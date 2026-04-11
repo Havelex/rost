@@ -1,0 +1,15 @@
+[package]
+name = "kernel"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+limine = "0.6.3"
+spin = "0.10.0"
+bitflags = "2.11.0"
+
+[lib]
+name = "kernel"
+path = "src/lib.rs"
+test = false
+bench = false
