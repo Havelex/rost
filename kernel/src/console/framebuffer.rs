@@ -11,11 +11,16 @@ pub struct Framebuffer {
 impl From<FramebufferInfo> for Framebuffer {
     fn from(info: FramebufferInfo) -> Self {
         Self {
-            addr: info.addr as *mut u32,
-            width: info.width,
-            height: info.height,
-            pitch: info.pitch / 4, // convert bytes to u32 pixels
-            bpp: info.bpp,
+            // addr: info.addr as *mut u32,
+            // width: info.width,
+            // height: info.height,
+            // pitch: info.pitch / 4, // convert bytes to u32 pixels
+            // bpp: info.bpp,
+            addr: &mut 0,
+            width: 0,
+            height: 0,
+            pitch: 0,
+            bpp: 0,
         }
     }
 }
@@ -23,11 +28,16 @@ impl From<FramebufferInfo> for Framebuffer {
 impl From<&FramebufferInfo> for Framebuffer {
     fn from(info: &FramebufferInfo) -> Self {
         Self {
-            addr: info.addr as *mut u32,
-            width: info.width,
-            height: info.height,
-            pitch: info.pitch / 4, // convert bytes to u32 pixels
-            bpp: info.bpp,
+            // addr: info.addr as *mut u32,
+            // width: info.width,
+            // height: info.height,
+            // pitch: info.pitch / 4, // convert bytes to u32 pixels
+            // bpp: info.bpp,
+            addr: &mut 0,
+            width: 0,
+            height: 0,
+            pitch: 0,
+            bpp: 0,
         }
     }
 }

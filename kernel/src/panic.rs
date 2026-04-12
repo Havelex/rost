@@ -11,5 +11,9 @@ pub enum KernelFault {
 
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
-    loop {}
+    loop {
+        unsafe {
+            core::arch::asm!("cli; hlt");
+        }
+    }
 }
