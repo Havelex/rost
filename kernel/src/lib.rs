@@ -1,10 +1,11 @@
 #![no_std]
 
 use crate::{
-    arch::{Architecture, CurrentArch, x86_64::drivers},
+    arch::{Arch, Architecture},
     boot::BootInfo,
     error::Result,
     logger::indent::{pop_indent, push_indent},
+    time::sleep,
 };
 
 #[macro_use]
@@ -26,17 +27,17 @@ pub fn init(info: BootInfo) -> ! {
     console::writer::init(fb_info.into());
     log_info!("Initializing Kernel...");
     push_indent();
-    init_step("Initializing early architecture", CurrentArch::init_early).unwrap();
-    init_step("Initializing interrupts...", CurrentArch::init_interrupts).unwrap();
-    init_step("Initializing drivers...", drivers::init).unwrap();
+    init_step("Initializing early architecture", Arch::init_early).unwrap();
+    init_step("Initializing interrupts...", Arch::init_interrupts).unwrap();
 
-    // println!("  [.] Initializing physical memory...");
-    // let mem_map = info.memory_map.expect("  [!] Missing memory map!");
-    // memory::init(mem_map.into());
-    // println!("  [*] Physical memory initiualized.");
-    // println!("  [.] Initializing virtual memory...");
-    // arch::CurrentArch::init_memory();
-    // println!("  [*] Virtual memory initialized.");
+    print!("\nFinishing boot");
+    for _ in 0..3 {
+        sleep(1000);
+        print!(".");
+    }
+    println!();
+    println!("Done!");
+
     loop {}
 }
 

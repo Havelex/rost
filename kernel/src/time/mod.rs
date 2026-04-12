@@ -1,12 +1,21 @@
-use core::sync::atomic::{AtomicU64, Ordering};
+use core::sync::atomic::{AtomicUsize, Ordering};
 
-static TICKS: AtomicU64 = AtomicU64::new(0);
+static TICKS: AtomicUsize = AtomicUsize::new(0);
 
 /// Increments the system tick counter. Called from IRQ 0.
 pub fn increment_ticks() {
     TICKS.fetch_add(1, Ordering::Relaxed);
 }
 
-pub fn get_ticks() -> u64 {
+pub fn get_ticks() -> usize {
     TICKS.load(Ordering::Relaxed)
+}
+
+pub fn sleep(ms: usize) {
+    let start_ticks = get_ticks();
+    let ticks_to_wait = ms / 10;
+
+    while get_ticks() < start_ticks + ticks_to_wait {
+        core::hint::spin_loop();
+    }
 }

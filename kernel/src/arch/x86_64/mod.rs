@@ -32,11 +32,9 @@ impl Architecture for X86_64 {
     }
 
     fn init_interrupts() -> Result<()> {
-        interrupts::init();
-        init_step("Remapping PIC", || {
-            unsafe { pic::remap_pic(32, 40) };
-            Ok(())
-        })?;
+        interrupts::init()?;
+        init_step("Remapping PIC", pic::init)?;
+        init_step("Initializing drivers", drivers::init)?;
         init_step("Enabling interrupts", || {
             Self::Cpu::enable_interrupts();
             Ok(())

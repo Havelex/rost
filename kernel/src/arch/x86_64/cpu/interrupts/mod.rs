@@ -1,11 +1,12 @@
 use crate::{
-    arch::x86_64::cpu::{X86Cpu, outb},
+    arch::x86_64::cpu::X86Cpu,
     cpu::{
         Cpu,
         interrupts::{
             GenericInterrupt, InterruptKind, exceptions::ExceptionType, handle_interrupt,
         },
     },
+    error::Result,
     init_step,
 };
 
@@ -73,13 +74,6 @@ pub extern "C" fn x86_64_interrupt_handler(ctx: *const InterruptContext) {
         dump_registers(ctx);
     }
 
-    if ctx.vector >= 32 && ctx.vector <= 47 {
-        if ctx.vector >= 40 {
-            outb(0xA0, 0x20); // Slave EOI
-        }
-        outb(0x20, 0x20); // Master EOI
-    }
-
     handle_interrupt(GenericInterrupt { rip: ctx.rip, kind });
 }
 
@@ -134,13 +128,12 @@ fn dump_registers(ctx: &InterruptContext) {
     crate::println!("------------------------\n");
 }
 
-pub fn init() {
-    init_step("Initializing IDT...", idt::init);
+pub fn init() -> Result<()> {
+    init_step("Initializing IDT...", idt::init)?;
     log_info!("Testing breakpoint exception");
-    X86Cpu::disable_interrupts();
     unsafe {
         core::arch::asm!("int3");
     }
-    X86Cpu::enable_interrupts();
     log_ok!("Successfully returned from breakpoint.");
+    Ok(())
 }

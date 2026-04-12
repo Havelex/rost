@@ -1,5 +1,5 @@
 use crate::{
-    arch::{Architecture, CurrentArch},
+    arch::{Arch, Architecture},
     cpu::Cpu,
     time::{get_ticks, increment_ticks},
 };
@@ -18,5 +18,5 @@ pub fn handle_hardware_interrupt(irq: u8) {
         }
     }
 
-    <CurrentArch as Architecture>::Cpu::send_eoi(irq);
+    <Arch as Architecture>::Cpu::send_eoi(irq);
 }
