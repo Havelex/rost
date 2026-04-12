@@ -1,16 +1,20 @@
 use spin::Mutex;
 
-use crate::arch::{
-    Architecture, Cpu,
-    x86_64::{
-        cpu::{X86Cpu, interrupts},
-        interrupts::pic,
-        memory::paging::{X86Mapper, mapper},
+use crate::{
+    arch::{
+        Architecture, Cpu,
+        x86_64::{
+            cpu::{X86Cpu, interrupts},
+            interrupts::pic,
+            memory::paging::{X86Mapper, mapper},
+        },
     },
+    error::Result,
+    init_step,
 };
 
 mod cpu;
-mod drivers;
+pub mod drivers;
 mod gdt;
 mod memory;
 mod tss;
@@ -21,34 +25,33 @@ impl Architecture for X86_64 {
     type Mapper = X86Mapper;
     type Cpu = X86Cpu;
 
-    fn init_early() {
-        println!("    [.] Initializing TSS...");
-        tss::init();
-        println!("    [*] TSS initialized.");
-        println!("    [.] Initializing GDT...");
-        gdt::init();
-        println!("    [*] GDT initialized.");
+    fn init_early() -> Result<()> {
+        init_step("Initializing TSS...", tss::init)?;
+        init_step("Initializing GDT...", gdt::init)?;
+        Ok(())
     }
 
-    fn init_interrupts() {
+    fn init_interrupts() -> Result<()> {
         interrupts::init();
-        println!("    [.] Remapping PIC...");
-        unsafe { pic::remap_pic(32, 40) };
-        println!("    [.] PIC successfulyy remapped.");
-        println!("    [W] WARNING: Running on legacy hardware");
-        println!("    [*] Initializing PIT...");
-        drivers::pit::init(100);
-        println!("    [*] PIT initialized.");
-        Self::Cpu::enable_interrupts();
+        init_step("Remapping PIC", || {
+            unsafe { pic::remap_pic(32, 40) };
+            Ok(())
+        })?;
+        init_step("Enabling interrupts", || {
+            Self::Cpu::enable_interrupts();
+            Ok(())
+        })?;
+        Ok(())
     }
 
-    fn init_memory() {
+    fn init_memory() -> Result<()> {
         println!("  [.] Initializing paging...");
 
         let pml4 = memory::paging::allocate_pml4();
         memory::paging::init(pml4.expect("  [!] Fault at paging initialization"));
 
         println!("  [*] Paging initialized.");
+        Ok(())
     }
 
     fn mapper() -> &'static Mutex<Self::Mapper> {

@@ -6,6 +6,7 @@ use crate::{
             GenericInterrupt, InterruptKind, exceptions::ExceptionType, handle_interrupt,
         },
     },
+    init_step,
 };
 
 mod idt;
@@ -45,13 +46,6 @@ pub struct InterruptContext {
 #[unsafe(no_mangle)]
 pub extern "C" fn x86_64_interrupt_handler(ctx: *const InterruptContext) {
     let ctx = unsafe { &*ctx };
-
-    if ctx.vector == 3 {
-        println!(
-            "DEBUG: CS={:#x} RIP={:#x} ERR={:#x}",
-            ctx.cs, ctx.rip, ctx.error_code
-        );
-    }
 
     let kind = if ctx.vector < 32 {
         InterruptKind::Exception(match ctx.vector {
@@ -141,14 +135,12 @@ fn dump_registers(ctx: &InterruptContext) {
 }
 
 pub fn init() {
-    println!("    [.] Initializing IDT...");
-    idt::init();
-    println!("    [*] IDT initialized...");
-    println!("    [.] Testing breakpoint interrupt...");
+    init_step("Initializing IDT...", idt::init);
+    log_info!("Testing breakpoint exception");
     X86Cpu::disable_interrupts();
     unsafe {
         core::arch::asm!("int3");
     }
     X86Cpu::enable_interrupts();
-    println!("    [*] Successfully returned from breakpoint.");
+    log_ok!("Successfully returned from breakpoint.");
 }

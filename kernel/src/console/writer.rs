@@ -2,12 +2,23 @@ use crate::console::{font, framebuffer::Framebuffer};
 use core::fmt::{self, Write};
 use spin::{Mutex, Once};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+enum AnsiState {
+    #[default]
+    Normal,
+    Escaped,    // Saw \x1b (27)
+    Csi,        // Saw [
+    InSequence, // Reading numeric parameters
+}
+
 pub struct Console {
     fb: Option<Framebuffer>,
     cursor_x: usize,
     cursor_y: usize,
     color: u32,
     bg_color: u32,
+    ansi_state: AnsiState,
+    ansi_buffer: u32, // To store numeric codes like '32'
 }
 
 impl Console {
@@ -18,6 +29,8 @@ impl Console {
             cursor_y: 0,
             color: 0xFFFFFFFF,
             bg_color: 0x00000000,
+            ansi_state: AnsiState::Normal,
+            ansi_buffer: 0,
         }
     }
 
@@ -28,16 +41,75 @@ impl Console {
             cursor_y: 0,
             color: 0xFFFFFFFF,
             bg_color: 0x00000000,
-        }
-    }
-
-    pub fn clear(&mut self, color: u32) {
-        if let Some(ref mut fb) = self.fb {
-            fb.clear(color);
+            ansi_state: AnsiState::Normal,
+            ansi_buffer: 0,
         }
     }
 
     pub fn write_char(&mut self, c: char) {
+        match self.ansi_state {
+            AnsiState::Normal => {
+                if c == '\x1b' {
+                    self.ansi_state = AnsiState::Escaped;
+                } else {
+                    self.handle_raw_char(c);
+                }
+            }
+            AnsiState::Escaped => {
+                if c == '[' {
+                    self.ansi_state = AnsiState::Csi;
+                    self.ansi_buffer = 0;
+                } else {
+                    self.ansi_state = AnsiState::Normal;
+                }
+            }
+            AnsiState::Csi => {
+                match c {
+                    '0'..='9' => {
+                        self.ansi_buffer = self.ansi_buffer * 10 + (c as u32 - '0' as u32);
+                        self.ansi_state = AnsiState::InSequence;
+                    }
+                    'm' => {
+                        // Standard SGR end
+                        self.apply_ansi_code(0);
+                        self.ansi_state = AnsiState::Normal;
+                    }
+                    _ => self.ansi_state = AnsiState::Normal,
+                }
+            }
+            AnsiState::InSequence => {
+                match c {
+                    '0'..='9' => {
+                        self.ansi_buffer = self.ansi_buffer * 10 + (c as u32 - '0' as u32);
+                    }
+                    'm' => {
+                        self.apply_ansi_code(self.ansi_buffer);
+                        self.ansi_state = AnsiState::Normal;
+                    }
+                    ';' => {
+                        // Multiple parameters (we'll just clear buffer for now)
+                        self.apply_ansi_code(self.ansi_buffer);
+                        self.ansi_buffer = 0;
+                    }
+                    _ => self.ansi_state = AnsiState::Normal,
+                }
+            }
+        }
+    }
+
+    fn apply_ansi_code(&mut self, code: u32) {
+        match code {
+            0 => self.color = 0xFFFFFFFF,  // Reset
+            31 => self.color = 0xFFFF0000, // Red
+            32 => self.color = 0xFF00FF00, // Green
+            33 => self.color = 0xFFFFFF00, // Yellow
+            34 => self.color = 0xFF0000FF, // Blue
+            36 => self.color = 0xFF00FFFF, // Cyan
+            _ => {}                        // Ignore others for now
+        }
+    }
+
+    fn handle_raw_char(&mut self, c: char) {
         match c {
             '\n' => {
                 self.cursor_x = 0;
@@ -61,7 +133,6 @@ impl Console {
                     self.cursor_y += 1;
                 }
 
-                // Check scrolling BEFORE drawing
                 if self.cursor_y >= height_chars {
                     self.scroll_up();
                     self.cursor_y = height_chars - 1;
@@ -81,7 +152,7 @@ impl Console {
             }
         }
 
-        // Final check for the newline case
+        // Check scrolling again for the newline case
         if let Some(ref fb) = self.fb {
             let height_chars = fb.height / 16;
             if self.cursor_y >= height_chars {
@@ -103,14 +174,11 @@ impl Console {
         let total_fb_bytes = fb.height * bytes_per_row;
 
         unsafe {
-            // Move rows up
             core::ptr::copy(
                 fb.addr.add(shift_amount_bytes),
                 fb.addr,
                 total_fb_bytes - shift_amount_bytes,
             );
-
-            // Clear the new bottom line (sets bytes to 0/Black)
             let last_row_ptr = fb.addr.add(total_fb_bytes - shift_amount_bytes);
             core::ptr::write_bytes(last_row_ptr, 0, shift_amount_bytes);
         }

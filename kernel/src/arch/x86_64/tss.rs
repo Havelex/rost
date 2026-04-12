@@ -1,5 +1,7 @@
 use core::mem::MaybeUninit;
 
+use crate::error::Result;
+
 #[repr(C, packed)]
 pub struct Tss {
     _reserved1: u32,
@@ -28,7 +30,7 @@ impl Tss {
 static mut TSS: MaybeUninit<Tss> = MaybeUninit::uninit();
 static DF_STACK: [u8; 4096] = [0; 4096];
 
-pub fn init() {
+pub fn init() -> Result<()> {
     let mut tss = Tss::new();
 
     tss.ist[0] = unsafe { (&raw const DF_STACK as *const u8).add(4096) as u64 };
@@ -36,6 +38,8 @@ pub fn init() {
     unsafe {
         core::ptr::write(&raw mut TSS as *mut MaybeUninit<Tss>, MaybeUninit::new(tss));
     }
+
+    Ok(())
 }
 
 pub fn get() -> &'static Tss {

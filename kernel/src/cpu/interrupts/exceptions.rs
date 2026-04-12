@@ -14,7 +14,7 @@ pub struct GenericExceptionInfo {
 pub fn handle_generic_exception(info: GenericExceptionInfo) {
     match info.exception {
         ExceptionType::Breakpoint => {
-            println!("Stopping at breakpoint: RIP={:#x}", info.rip);
+            log_info!("Stopping at breakpoint: RIP={:#x}", info.rip);
         }
         ExceptionType::PageFault { addr, error_code } => {
             panic!(

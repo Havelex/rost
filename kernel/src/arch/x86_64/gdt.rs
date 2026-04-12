@@ -1,3 +1,5 @@
+use crate::error::Result;
+
 use super::tss;
 
 #[repr(C, packed)]
@@ -8,7 +10,7 @@ struct GdtDescriptor {
 
 static mut GDT: [u64; 5] = [0; 5];
 
-pub fn init() {
+pub fn init() -> Result<()> {
     unsafe {
         GDT[0] = 0;
         GDT[1] = 0x00AF9A000000FFFF; // kernel code
@@ -32,7 +34,6 @@ pub fn init() {
 
         core::arch::asm!("lgdt [{}]", in(reg) &gdtr);
 
-        // Reload segment registers using a Far Return
         core::arch::asm!(
             "push 0x08",           // Push the Code Segment selector (Index 1)
             "lea rax, [rip + 2f]", // Load address of label '2' into RAX
@@ -45,10 +46,10 @@ pub fn init() {
             "mov ss, ax",
             "mov fs, ax",
             "mov gs, ax",
-            // We removed options(noreturn) so the code below is reachable
         );
 
-        // This code is now reachable again!
         core::arch::asm!("ltr ax", in("ax") 0x18u16);
     }
+
+    Ok(())
 }

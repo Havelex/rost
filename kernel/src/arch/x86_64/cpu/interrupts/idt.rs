@@ -1,4 +1,6 @@
 use core::arch::global_asm;
+
+use crate::error::Result;
 global_asm!(include_str!(r#"interrupts.S"#), options(att_syntax));
 
 #[derive(Clone, Copy)]
@@ -50,7 +52,7 @@ unsafe extern "C" {
     static isr_stub_table: [extern "C" fn(); 48];
 }
 
-pub fn init() {
+pub fn init() -> Result<()> {
     let idt_ptr = &raw mut IDT as *mut IdtEntry;
 
     // Change 32 to 48 to include Hardware Interrupts
@@ -71,4 +73,5 @@ pub fn init() {
     unsafe {
         core::arch::asm!("lidt [{}]", in(reg) &idtr);
     }
+    Ok(())
 }
