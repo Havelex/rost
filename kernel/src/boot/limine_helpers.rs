@@ -21,7 +21,7 @@ pub static FB_REQUEST: FramebufferRequest = FramebufferRequest::new();
 
 #[used]
 #[unsafe(link_section = ".limine_reqs")]
-static STACK_REQUEST: StackSizeRequest = StackSizeRequest::new(512 * 1024);
+static STACK_REQUEST: StackSizeRequest = StackSizeRequest::new(0x8000);
 
 #[used]
 #[unsafe(link_section = ".limine_req_end")]

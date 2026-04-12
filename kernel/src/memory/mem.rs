@@ -1,32 +1,53 @@
-#![allow(non_snake_case)]
-
-use core::ptr;
+#![allow(dead_code)]
 
 #[unsafe(no_mangle)]
-pub extern "C" fn memcpy(dest: *mut u8, src: *const u8, n: usize) -> *mut u8 {
-    unsafe {
-        ptr::copy_nonoverlapping(src, dest, n);
+pub unsafe extern "C" fn memcpy(dest: *mut u8, src: *const u8, n: usize) -> *mut u8 {
+    let mut i = 0;
+    while i < n {
+        unsafe {
+            *dest.add(i) = *src.add(i);
+        }
+        i += 1;
     }
     dest
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn memset(dest: *mut u8, value: i32, n: usize) -> *mut u8 {
-    unsafe {
-        ptr::write_bytes(dest, value as u8, n);
+pub unsafe extern "C" fn memset(s: *mut u8, c: i32, n: usize) -> *mut u8 {
+    let mut i = 0;
+    while i < n {
+        unsafe {
+            *s.add(i) = c as u8;
+        }
+        i += 1;
     }
-    dest
+    s
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn memcmp(a: *const u8, b: *const u8, n: usize) -> i32 {
-    unsafe {
-        for i in 0..n {
-            let av = *a.add(i);
-            let bv = *b.add(i);
+pub unsafe extern "C" fn memmove(dest: *mut u8, src: *const u8, n: usize) -> *mut u8 {
+    if dest < src as *mut u8 {
+        unsafe { memcpy(dest, src, n) }
+    } else {
+        let mut i = n;
+        while i != 0 {
+            i -= 1;
+            unsafe {
+                *dest.add(i) = *src.add(i);
+            }
+        }
+        dest
+    }
+}
 
-            if av != bv {
-                return av as i32 - bv as i32;
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn memcmp(s1: *const u8, s2: *const u8, n: usize) -> i32 {
+    for i in 0..n {
+        unsafe {
+            let a = *s1.add(i);
+            let b = *s2.add(i);
+            if a != b {
+                return a as i32 - b as i32;
             }
         }
     }

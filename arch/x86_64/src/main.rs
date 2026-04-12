@@ -6,6 +6,5 @@ use kernel;
 
 #[unsafe(no_mangle)]
 pub extern "C" fn _start() -> ! {
-    let info = kernel::boot();
-    kernel::init(info);
+    kernel::init(kernel::boot());
 }

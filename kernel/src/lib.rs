@@ -12,9 +12,9 @@ pub(crate) mod panic;
 pub use boot::init as boot;
 
 pub fn init(info: BootInfo) -> ! {
-    // let fb = info.framebuffer.expect("  [!] Missing frame buffer!");
-    // console::writer::init(fb.into());
-    // println!("[.] Initializing Kernel...");
+    let fb = info.framebuffer.expect("  [!] Missing frame buffer!");
+    console::writer::init(fb.into());
+    println!("[.] Initializing Kernel...");
     // println!("  [*] Console initialized.");
     // arch::CurrentArch::init_early();
     // println!("  [.] Initializing physical memory...");
