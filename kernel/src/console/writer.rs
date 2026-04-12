@@ -32,55 +32,63 @@ impl Console {
     }
 
     pub fn clear(&mut self, color: u32) {
-        self.fb.as_mut().unwrap().clear(color);
+        if let Some(ref mut fb) = self.fb {
+            fb.clear(color);
+        }
     }
 
     pub fn write_char(&mut self, c: char) {
-        if self.fb.is_none() {
-            return;
-        }
-
         match c {
             '\n' => {
                 self.cursor_x = 0;
                 self.cursor_y += 1;
-                return;
             }
             '\r' => {
                 self.cursor_x = 0;
-                return;
             }
             '\t' => {
-                self.cursor_x += 4;
-                return;
+                self.cursor_x = (self.cursor_x + 4) & !3;
             }
-            _ => {}
+            _ => {
+                let (width_chars, height_chars) = if let Some(ref fb) = self.fb {
+                    (fb.width / 8, fb.height / 16)
+                } else {
+                    return;
+                };
+
+                if self.cursor_x >= width_chars {
+                    self.cursor_x = 0;
+                    self.cursor_y += 1;
+                }
+
+                // Check scrolling BEFORE drawing
+                if self.cursor_y >= height_chars {
+                    self.scroll_up();
+                    self.cursor_y = height_chars - 1;
+                }
+
+                if let Some(ref mut fb) = self.fb {
+                    let glyph = font::glyph(c);
+                    fb.draw_glyph(
+                        self.cursor_x * 8,
+                        self.cursor_y * 16,
+                        glyph,
+                        self.color,
+                        self.bg_color,
+                    );
+                }
+                self.cursor_x += 1;
+            }
         }
 
-        let width_chars = self.fb.as_ref().unwrap().width / 8;
-        let height_chars = self.fb.as_ref().unwrap().height / 16;
-
-        if self.cursor_x >= width_chars {
-            self.cursor_x = 0;
-            self.cursor_y += 1;
+        // Final check for the newline case
+        if let Some(ref fb) = self.fb {
+            let height_chars = fb.height / 16;
+            if self.cursor_y >= height_chars {
+                self.scroll_up();
+                self.cursor_y = height_chars - 1;
+            }
         }
-
-        if self.cursor_y >= height_chars {
-            self.scroll_up();
-            self.cursor_y = height_chars - 1;
-        }
-
-        let glyph = font::glyph(c);
-
-        let x = self.cursor_x * 8;
-        let y = self.cursor_y * 16;
-
-        self.fb
-            .as_mut()
-            .unwrap()
-            .draw_glyph(x, y, glyph, self.color, self.bg_color);
-
-        self.cursor_x += 1;
     }
 
     fn scroll_up(&mut self) {
@@ -89,32 +97,27 @@ impl Console {
             None => return,
         };
 
-        let row_size = fb.pitch / 4 * 16; // 16 pixels tall
-        let total_rows = fb.height / 16;
+        let bytes_per_row = fb.pitch;
+        let char_height = 16;
+        let shift_amount_bytes = char_height * bytes_per_row;
+        let total_fb_bytes = fb.height * bytes_per_row;
 
         unsafe {
-            // Move all rows up by one
-            for row in 1..total_rows {
-                let src_offset = row * row_size;
-                let dst_offset = (row - 1) * row_size;
-                for col in 0..row_size {
-                    let src_ptr = fb.addr.add(src_offset + col);
-                    let dst_ptr = fb.addr.add(dst_offset + col);
-                    core::ptr::write_volatile(dst_ptr, core::ptr::read_volatile(src_ptr));
-                }
-            }
+            // Move rows up
+            core::ptr::copy(
+                fb.addr.add(shift_amount_bytes),
+                fb.addr,
+                total_fb_bytes - shift_amount_bytes,
+            );
 
-            // Clear last row
-            let last_row_offset = (total_rows - 1) * row_size;
-            for i in 0..row_size {
-                core::ptr::write_volatile(fb.addr.add(last_row_offset + i), self.bg_color);
-            }
+            // Clear the new bottom line (sets bytes to 0/Black)
+            let last_row_ptr = fb.addr.add(total_fb_bytes - shift_amount_bytes);
+            core::ptr::write_bytes(last_row_ptr, 0, shift_amount_bytes);
         }
     }
 }
 
 unsafe impl Sync for Console {}
-
 unsafe impl Send for Console {}
 
 impl Write for Console {

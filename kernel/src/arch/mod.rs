@@ -16,8 +16,16 @@ use crate::memory::paging::Mapper;
 pub trait Architecture {
     type Mapper: Mapper;
 
+    // CPU
     fn init_early();
-    fn init_memory();
+    fn halt();
+
+    // intterupts
     fn init_interrupts();
+    fn disable_interupts();
+    fn enable_interrupts();
+
+    // memory
+    fn init_memory();
     fn mapper() -> &'static Mutex<Self::Mapper>;
 }

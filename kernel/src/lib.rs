@@ -1,6 +1,6 @@
 #![no_std]
 
-use crate::{arch::Architecture, boot::BootInfo};
+use crate::{arch::Architecture, boot::BootInfo, console::framebuffer::Framebuffer};
 
 #[macro_use]
 pub(crate) mod console;
@@ -12,11 +12,12 @@ pub(crate) mod panic;
 pub use boot::init as boot;
 
 pub fn init(info: BootInfo) -> ! {
-    let fb = info.framebuffer.expect("  [!] Missing frame buffer!");
-    console::writer::init(fb.into());
+    let fb_info = info.framebuffer.expect("[!] Missing frame buffer!");
+    console::writer::init(fb_info.into());
     println!("[.] Initializing Kernel...");
-    // println!("  [*] Console initialized.");
-    // arch::CurrentArch::init_early();
+    println!("  [*] Console initialized.");
+    arch::CurrentArch::init_early();
+    arch::CurrentArch::init_interrupts();
     // println!("  [.] Initializing physical memory...");
     // let mem_map = info.memory_map.expect("  [!] Missing memory map!");
     // memory::init(mem_map.into());

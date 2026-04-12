@@ -22,10 +22,21 @@ impl Architecture for X86_64 {
         println!("  [.] Initializing GDT...");
         gdt::init();
         println!("  [*] GDT initialized.");
+    }
+
+    fn halt() {
+        // unsafe { core::arch::asm!("htl") }
+    }
+
+    fn init_interrupts() {
         println!("  [.] Initializing IDT...");
         idt::init();
         println!("  [*] IDT initialized.");
     }
+
+    fn disable_interupts() {}
+
+    fn enable_interrupts() {}
 
     fn init_memory() {
         println!("  [.] Initializing paging...");
@@ -35,8 +46,6 @@ impl Architecture for X86_64 {
 
         println!("  [*] Paging initialized.");
     }
-
-    fn init_interrupts() {}
 
     fn mapper() -> &'static Mutex<Self::Mapper> {
         mapper()

@@ -1,6 +1,6 @@
 use limine::{
     BaseRevision, RequestsEndMarker, RequestsStartMarker,
-    request::{FramebufferRequest, MemmapRequest, StackSizeRequest},
+    request::{FramebufferRequest, HhdmRequest, MemmapRequest, StackSizeRequest},
 };
 
 #[used]
@@ -18,6 +18,10 @@ pub static MEM_MAP_REQUEST: MemmapRequest = MemmapRequest::new();
 #[used]
 #[unsafe(link_section = ".limine_reqs")]
 pub static FB_REQUEST: FramebufferRequest = FramebufferRequest::new();
+
+#[used]
+#[unsafe(link_section = ".limine_reqs")]
+pub static HDDM_REQUEST: HhdmRequest = HhdmRequest::new();
 
 #[used]
 #[unsafe(link_section = ".limine_reqs")]
