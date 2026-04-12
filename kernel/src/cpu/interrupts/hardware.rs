@@ -7,6 +7,7 @@ use crate::{
 pub fn handle_hardware_interrupt(irq: u8) {
     match irq {
         0 => {
+            println!("Reached increment");
             increment_ticks();
             if get_ticks() % 100 == 0 {
                 print!(".")

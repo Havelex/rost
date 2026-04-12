@@ -3,6 +3,7 @@
 use crate::{
     arch::{Arch, Architecture},
     boot::BootInfo,
+    cpu::Cpu,
     error::Result,
     logger::indent::{pop_indent, push_indent},
     time::sleep,
@@ -24,6 +25,7 @@ pub use boot::init as boot;
 
 pub fn init(info: BootInfo) -> ! {
     let fb_info = info.framebuffer.unwrap();
+
     console::writer::init(fb_info.into());
     log_info!("Initializing Kernel...");
     push_indent();
@@ -31,14 +33,20 @@ pub fn init(info: BootInfo) -> ! {
     init_step("Initializing interrupts...", Arch::init_interrupts).unwrap();
 
     print!("\nFinishing boot");
+    unsafe {
+        core::arch::asm!("int $32");
+    }
     for _ in 0..3 {
         sleep(1000);
         print!(".");
     }
+
     println!();
     println!("Done!");
 
-    loop {}
+    loop {
+        <Arch as Architecture>::Cpu::halt()
+    }
 }
 
 pub fn init_step<T, F>(name: &'static str, f: F) -> Result<T>

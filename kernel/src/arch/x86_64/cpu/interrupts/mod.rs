@@ -1,10 +1,6 @@
 use crate::{
-    arch::x86_64::cpu::X86Cpu,
-    cpu::{
-        Cpu,
-        interrupts::{
-            GenericInterrupt, InterruptKind, exceptions::ExceptionType, handle_interrupt,
-        },
+    cpu::interrupts::{
+        GenericInterrupt, InterruptKind, exceptions::ExceptionType, handle_interrupt,
     },
     error::Result,
     init_step,
@@ -47,6 +43,10 @@ pub struct InterruptContext {
 #[unsafe(no_mangle)]
 pub extern "C" fn x86_64_interrupt_handler(ctx: *const InterruptContext) {
     let ctx = unsafe { &*ctx };
+
+    if ctx.vector == 32 {
+        println!("!");
+    }
 
     let kind = if ctx.vector < 32 {
         InterruptKind::Exception(match ctx.vector {
