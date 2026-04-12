@@ -22,18 +22,23 @@ impl Architecture for X86_64 {
     type Cpu = X86Cpu;
 
     fn init_early() {
-        println!("  [.] Initializing TSS...");
+        println!("    [.] Initializing TSS...");
         tss::init();
-        println!("  [*] TSS initialized.");
-        println!("  [.] Initializing GDT...");
+        println!("    [*] TSS initialized.");
+        println!("    [.] Initializing GDT...");
         gdt::init();
-        println!("  [*] GDT initialized.");
+        println!("    [*] GDT initialized.");
     }
 
     fn init_interrupts() {
         interrupts::init();
+        println!("    [.] Remapping PIC...");
         unsafe { pic::remap_pic(32, 40) };
+        println!("    [.] PIC successfulyy remapped.");
+        println!("    [W] WARNING: Running on legacy hardware");
+        println!("    [*] Initializing PIT...");
         drivers::pit::init(100);
+        println!("    [*] PIT initialized.");
         Self::Cpu::enable_interrupts();
     }
 

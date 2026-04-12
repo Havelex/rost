@@ -18,8 +18,12 @@ pub fn init(info: BootInfo) -> ! {
     console::writer::init(fb_info.into());
     println!("[.] Initializing Kernel...");
     println!("  [*] Console initialized.");
+    println!("  [.] Initializing early architecture...");
     arch::CurrentArch::init_early();
+    println!("  [*] Early architecture initialized");
+    println!("  [.] Initializing interrupts...");
     arch::CurrentArch::init_interrupts();
+    println!("  [*] interrupts initialized");
     // println!("  [.] Initializing physical memory...");
     // let mem_map = info.memory_map.expect("  [!] Missing memory map!");
     // memory::init(mem_map.into());

@@ -141,12 +141,14 @@ fn dump_registers(ctx: &InterruptContext) {
 }
 
 pub fn init() {
+    println!("    [.] Initializing IDT...");
     idt::init();
-    crate::println!("Triggering breakpoint...");
+    println!("    [*] IDT initialized...");
+    println!("    [.] Testing breakpoint interrupt...");
     X86Cpu::disable_interrupts();
     unsafe {
         core::arch::asm!("int3");
     }
     X86Cpu::enable_interrupts();
-    crate::println!("Successfully returned from breakpoint!");
+    println!("    [*] Successfully returned from breakpoint.");
 }
