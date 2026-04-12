@@ -27,20 +27,28 @@ pub fn init() {
 
         let gdtr = GdtDescriptor {
             limit: (core::mem::size_of::<[u64; 5]>() - 1) as u16,
-            base: (&raw const GDT) as *const _ as u64,
+            base: (&raw const GDT) as u64,
         };
 
         core::arch::asm!("lgdt [{}]", in(reg) &gdtr);
 
+        // Reload segment registers using a Far Return
         core::arch::asm!(
-            "mov ax, 0x10",
+            "push 0x08",           // Push the Code Segment selector (Index 1)
+            "lea rax, [rip + 2f]", // Load address of label '2' into RAX
+            "push rax",            // Push it as the return RIP
+            "retfq",               // Far return: pops RAX into RIP and 0x08 into CS
+            "2:",                  // The "Return" point
+            "mov ax, 0x10",        // Data segment (Index 2)
             "mov ds, ax",
             "mov es, ax",
             "mov ss, ax",
             "mov fs, ax",
             "mov gs, ax",
+            // We removed options(noreturn) so the code below is reachable
         );
 
+        // This code is now reachable again!
         core::arch::asm!("ltr ax", in("ax") 0x18u16);
     }
 }

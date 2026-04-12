@@ -1,19 +1,25 @@
 use spin::Mutex;
 
 use crate::arch::{
-    Architecture,
-    x86_64::memory::paging::{X86Mapper, mapper},
+    Architecture, Cpu,
+    x86_64::{
+        cpu::{X86Cpu, interrupts},
+        interrupts::pic,
+        memory::paging::{X86Mapper, mapper},
+    },
 };
 
+mod cpu;
+mod drivers;
 mod gdt;
-mod idt;
-pub mod memory;
+mod memory;
 mod tss;
 
 pub struct X86_64;
 
 impl Architecture for X86_64 {
     type Mapper = X86Mapper;
+    type Cpu = X86Cpu;
 
     fn init_early() {
         println!("  [.] Initializing TSS...");
@@ -24,19 +30,12 @@ impl Architecture for X86_64 {
         println!("  [*] GDT initialized.");
     }
 
-    fn halt() {
-        // unsafe { core::arch::asm!("htl") }
-    }
-
     fn init_interrupts() {
-        println!("  [.] Initializing IDT...");
-        idt::init();
-        println!("  [*] IDT initialized.");
+        interrupts::init();
+        unsafe { pic::remap_pic(32, 40) };
+        drivers::pit::init(100);
+        Self::Cpu::enable_interrupts();
     }
-
-    fn disable_interupts() {}
-
-    fn enable_interrupts() {}
 
     fn init_memory() {
         println!("  [.] Initializing paging...");

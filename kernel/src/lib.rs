@@ -1,13 +1,15 @@
 #![no_std]
 
-use crate::{arch::Architecture, boot::BootInfo, console::framebuffer::Framebuffer};
+use crate::{arch::Architecture, boot::BootInfo};
 
 #[macro_use]
 pub(crate) mod console;
 pub(crate) mod arch;
 pub(crate) mod boot;
+pub(crate) mod cpu;
 pub(crate) mod memory;
 pub(crate) mod panic;
+pub(crate) mod time;
 
 pub use boot::init as boot;
 
