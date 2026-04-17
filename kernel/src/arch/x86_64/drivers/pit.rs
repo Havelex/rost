@@ -1,4 +1,4 @@
-use crate::{arch::x86_64::cpu::outb, error::Result};
+use crate::{arch::x86_64::asm::outb, error::Result};
 
 /// The PIT oscillator frequency in Hz.
 const PIT_BASE_FREQUENCY: u32 = 1_193_182;
@@ -17,15 +17,11 @@ pub fn init() -> Result<()> {
     let high_byte = ((divisor >> 8) & 0xFF) as u8;
 
     // let command: u8 = SELECT_CHANNEL_0 | ACCESS_LOBYTE_HIBYTE | MODE_SQUARE_WAVE;
-    let command: u8 = 0x36;
-
-    outb(COMMAND_PORT, command);
-
-    outb(0x80, 0);
-    // 3. Send the divisor (low byte then high byte) to Channel 0 (0x40)
-    outb(CHANNEL_0_PORT, low_byte);
-    outb(0x80, 0);
-    outb(CHANNEL_0_PORT, high_byte);
-
+    let command = 0x36u8;
+    unsafe {
+        outb(COMMAND_PORT, command);
+        outb(CHANNEL_0_PORT, low_byte);
+        outb(CHANNEL_0_PORT, high_byte);
+    }
     Ok(())
 }

@@ -33,8 +33,18 @@ pub fn init(info: BootInfo) -> ! {
     init_step("Initializing interrupts...", Arch::init_interrupts).unwrap();
 
     print!("\nFinishing boot");
+    // unsafe {
+    //     core::arch::asm!("int $32");
+    // }
     unsafe {
-        core::arch::asm!("int $32");
+        log_info!(
+            "PIC IRR: {:#04x}",
+            crate::arch::x86_64::cpu::interrupts::pic::pic_get_irr()
+        );
+        log_info!(
+            "PIC ISR: {:#04x}",
+            crate::arch::x86_64::cpu::interrupts::pic::pic_get_isr()
+        );
     }
     for _ in 0..3 {
         sleep(1000);

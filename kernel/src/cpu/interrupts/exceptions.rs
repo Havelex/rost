@@ -1,5 +1,6 @@
 pub enum ExceptionType {
     DivideByZero,
+    DoubleFault,
     Breakpoint,
     GeneralProtectionFault(u64), // Contains the error code
     PageFault { addr: u64, error_code: u64 },
@@ -15,6 +16,9 @@ pub fn handle_generic_exception(info: GenericExceptionInfo) {
     match info.exception {
         ExceptionType::Breakpoint => {
             log_info!("Stopping at breakpoint: RIP={:#x}", info.rip);
+        }
+        ExceptionType::DoubleFault => {
+            panic!("Double Fault at {:#x}", info.rip)
         }
         ExceptionType::PageFault { addr, error_code } => {
             panic!(

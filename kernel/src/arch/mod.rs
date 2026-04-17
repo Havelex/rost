@@ -28,4 +28,6 @@ pub trait Architecture {
 
     // getter
     fn mapper() -> &'static Mutex<Self::Mapper>;
+
+    fn send_eoi(irq: u8);
 }

@@ -1,6 +1,5 @@
-use core::mem::MaybeUninit;
-
 use crate::error::Result;
+use core::mem::MaybeUninit;
 
 #[repr(C, packed)]
 pub struct Tss {
@@ -22,26 +21,42 @@ impl Tss {
             ist: [0; 7],
             _reserved3: 0,
             _reserved4: 0,
-            iopb_offset: 0,
+            // Must point to or beyond the end of the TSS to disable I/O bitmap
+            iopb_offset: core::mem::size_of::<Tss>() as u16,
         }
     }
 }
 
 static mut TSS: MaybeUninit<Tss> = MaybeUninit::uninit();
-static DF_STACK: [u8; 4096] = [0; 4096];
+
+// Align to 16 bytes for ABI compliance
+#[repr(C, align(16))]
+struct Stack([u8; 4096]);
+static mut DF_STACK: Stack = Stack([0; 4096]);
+
+use core::ptr::{addr_of, addr_of_mut};
 
 pub fn init() -> Result<()> {
     let mut tss = Tss::new();
 
-    tss.ist[0] = unsafe { (&raw const DF_STACK as *const u8).add(4096) as u64 };
-
     unsafe {
-        core::ptr::write(&raw mut TSS as *mut MaybeUninit<Tss>, MaybeUninit::new(tss));
+        // Point IST[0] to the top of the stack
+        let stack_ptr = (&raw mut DF_STACK).cast::<u8>().add(4096);
+        tss.ist[0] = stack_ptr as u64;
+        tss.rsp[0] = stack_ptr as u64;
+
+        // Use addr_of_mut! to get a raw pointer without creating a reference
+        let tss_ptr = addr_of_mut!(TSS);
+        core::ptr::write(tss_ptr.cast::<Tss>(), tss);
     }
 
     Ok(())
 }
 
 pub fn get() -> &'static Tss {
-    unsafe { (&raw const TSS).cast::<Tss>().as_ref().unwrap() }
+    unsafe {
+        // We cast the raw pointer to a reference at the very last second.
+        // This is still unsafe, but it satisfies the compiler's new rules.
+        &*addr_of!(TSS).cast::<Tss>()
+    }
 }

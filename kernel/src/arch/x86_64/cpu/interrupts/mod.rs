@@ -1,4 +1,5 @@
 use crate::{
+    arch::x86_64::cpu::interrupts::apic::{has_apic, init_apic},
     cpu::interrupts::{
         GenericInterrupt, InterruptKind, exceptions::ExceptionType, handle_interrupt,
     },
@@ -6,6 +7,9 @@ use crate::{
     init_step,
 };
 
+static mut SEND_EOI: fn(irq: u8) = pic::send_eoi;
+
+pub mod apic;
 mod idt;
 pub mod pic;
 
@@ -44,14 +48,11 @@ pub struct InterruptContext {
 pub extern "C" fn x86_64_interrupt_handler(ctx: *const InterruptContext) {
     let ctx = unsafe { &*ctx };
 
-    if ctx.vector == 32 {
-        println!("!");
-    }
-
     let kind = if ctx.vector < 32 {
         InterruptKind::Exception(match ctx.vector {
             0 => ExceptionType::DivideByZero,
             3 => ExceptionType::Breakpoint,
+            8 => ExceptionType::DoubleFault,
             13 => ExceptionType::GeneralProtectionFault(ctx.error_code), // Map GPF
             14 => {
                 let addr: u64;
@@ -75,6 +76,7 @@ pub extern "C" fn x86_64_interrupt_handler(ctx: *const InterruptContext) {
     }
 
     handle_interrupt(GenericInterrupt { rip: ctx.rip, kind });
+    send_eoi((ctx.vector - 32) as u8);
 }
 
 fn dump_page_fault_details(error_code: u64) {
@@ -135,5 +137,25 @@ pub fn init() -> Result<()> {
         core::arch::asm!("int3");
     }
     log_ok!("Successfully returned from breakpoint.");
+
+    init_step("Initializing Interrupt Controller...", || {
+        if has_apic() {
+            unsafe {
+                SEND_EOI = |_: u8| {
+                    apic::send_eoi();
+                };
+            }
+            log_info!("APIC detected. Initializing...");
+            // Important: Disable the legacy PIC so it doesn't interfere
+            pic::disable();
+            unsafe { init_apic() };
+        } else {
+            log_warn!("APIC not found. Falling back to legacy PIC...");
+            pic::init()?;
+        }
+        Ok(())
+    })?;
     Ok(())
 }
+
+pub fn send_eoi(irq: u8) {}

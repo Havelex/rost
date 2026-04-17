@@ -4,7 +4,13 @@ use crate::{
     arch::{
         Architecture, Cpu,
         x86_64::{
-            cpu::{X86Cpu, interrupts},
+            cpu::{
+                X86Cpu,
+                interrupts::{
+                    self,
+                    apic::{has_apic, init_apic},
+                },
+            },
             interrupts::pic,
             memory::paging::{X86Mapper, mapper},
         },
@@ -13,10 +19,12 @@ use crate::{
     init_step,
 };
 
-mod cpu;
+mod asm;
+pub mod cpu;
 pub mod drivers;
 mod gdt;
 mod memory;
+pub mod msr;
 mod tss;
 
 pub struct X86_64;
@@ -33,7 +41,6 @@ impl Architecture for X86_64 {
 
     fn init_interrupts() -> Result<()> {
         interrupts::init()?;
-        init_step("Remapping PIC", pic::init)?;
         init_step("Initializing drivers", drivers::init)?;
         init_step("Enabling interrupts", || {
             Self::Cpu::enable_interrupts();
@@ -54,5 +61,9 @@ impl Architecture for X86_64 {
 
     fn mapper() -> &'static Mutex<Self::Mapper> {
         mapper()
+    }
+
+    fn send_eoi(irq: u8) {
+        interrupts::send_eoi(irq);
     }
 }

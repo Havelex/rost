@@ -1,7 +1,7 @@
 .altmacro
 .section .text
 
-; --- Helper Macro ---
+# --- Helper Macro ---
 .macro generate_isr num
     .global isr\num
     isr\num:
@@ -14,12 +14,12 @@
         jmp common_isr
 .endm
 
-; --- Wrapper to force evaluation ---
+# --- Wrapper to force evaluation ---
 .macro isr_wrapper i
     generate_isr %i
 .endm
 
-; --- Generate Exceptions (0-31) ---
+# --- Generate Exceptions (0-31) ---
 .set i, 0
 .rept 32
     isr_wrapper %i
@@ -33,9 +33,10 @@
     .set i, i + 1
 .endr
 
-; --- Common Handler ---
+# --- Common Handler ---
 .extern x86_64_interrupt_handler
 common_isr:
+    # Save all registers
     pushq %rax
     pushq %rbx
     pushq %rcx
@@ -53,13 +54,14 @@ common_isr:
     pushq %r15
 
     movq %rsp, %rdi
-
-    subq $8, %rsp
+    movq %rsp, %rbp    # Save original RSP
+    andq $-16, %rsp    # Force 16-byte alignment
 
     call x86_64_interrupt_handler
 
-    addq $8, %rsp
+    movq %rbp, %rsp    # Restore original RSP before popping
 
+    # Restore registers
     popq %r15
     popq %r14
     popq %r13
@@ -76,10 +78,11 @@ common_isr:
     popq %rbx
     popq %rax
 
+    # Clean up vector and error code
     addq $16, %rsp
     iretq
 
-; --- Stub Table ---
+# --- Stub Table ---
 .section .data
 .align 8
 .global isr_stub_table

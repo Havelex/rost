@@ -1,63 +1,133 @@
 use crate::{
-    arch::x86_64::cpu::{inb, outb},
+    arch::x86_64::asm::{inb, outb},
     error::Result,
 };
 
-// Port addresses are 16-bit on x86
+// Port addresses
 const PIC1_COMMAND: u16 = 0x20;
-const PIC1_DATA: u16 = 0x21;
+const PIC1_DATA: u16 = PIC1_COMMAND + 1;
 const PIC2_COMMAND: u16 = 0xA0;
-const PIC2_DATA: u16 = 0xA1;
+const PIC2_DATA: u16 = PIC2_COMMAND + 1;
 
-pub unsafe fn remap_pic(offset1: u8, offset2: u8) {
-    // ICW1: Start initialization
-    outb(PIC1_COMMAND, 0x11);
-    io_wait();
-    outb(PIC2_COMMAND, 0x11);
-    io_wait();
+const PIC_EOI: u8 = 0x20;
 
-    // ICW2: Vector offsets
-    outb(PIC1_DATA, offset1);
-    outb(PIC2_DATA, offset2);
+const ICW1_INIT: u8 = 0x10;
+const ICW1_ICW4: u8 = 0x01;
+const ICW4_8086: u8 = 0x01;
 
-    // ICW3: Cascade
-    outb(PIC1_DATA, 0x04);
-    outb(PIC2_DATA, 0x02);
+const CASCADE_IRQ: u8 = 2;
 
-    // ICW4: 8086 mode
-    outb(PIC1_DATA, 0x01);
-    outb(PIC2_DATA, 0x01);
+const PIC_READ_IRR: u8 = 0x0a;
+const PIC_READ_ISR: u8 = 0x0b;
 
-    outb(PIC1_DATA, 0xFF);
-    outb(PIC2_DATA, 0xFF);
-}
-
+/// Wait for a small amount of time for IO ports to settle
 fn io_wait() {
-    outb(0x80, 0);
+    unsafe { outb(0x80, 0) };
 }
 
-unsafe fn unmask_irq(irq: u8) {
-    let port = if irq < 8 { PIC1_DATA } else { PIC2_DATA };
-    let irq_bit = if irq < 8 { irq } else { irq - 8 };
+/// Remaps the PIC offsets so they don't conflict with CPU exceptions
+unsafe fn remap_pic(offset1: u8, offset2: u8) {
+    unsafe {
+        outb(PIC1_COMMAND, ICW1_INIT | ICW1_ICW4);
+        io_wait();
+        outb(PIC2_COMMAND, ICW1_INIT | ICW1_ICW4);
+        io_wait();
 
-    // Read current mask, clear the bit for our IRQ, and write it back
-    // 0 = Enabled, 1 = Masked
-    let mask = inb(port) & !(1 << irq_bit);
-    outb(port, mask);
+        outb(PIC1_DATA, offset1);
+        io_wait();
+        outb(PIC2_DATA, offset2);
+        io_wait();
+
+        outb(PIC1_DATA, 1 << CASCADE_IRQ);
+        io_wait();
+        outb(PIC2_DATA, 2);
+        io_wait();
+
+        outb(PIC1_DATA, ICW4_8086);
+        io_wait();
+        outb(PIC2_DATA, ICW4_8086);
+        io_wait();
+
+        outb(PIC1_DATA, 0);
+        outb(PIC2_DATA, 0);
+    }
 }
 
-unsafe fn disable_pic() {
-    outb(PIC1_DATA, 0xFF);
-    outb(PIC2_DATA, 0xFF);
+/// Mask (disable) a specific IRQ line
+pub fn set_mask(mut irq_line: u8) {
+    let port = if irq_line < 8 {
+        PIC1_DATA
+    } else {
+        irq_line -= 8;
+        PIC2_DATA
+    };
+    unsafe {
+        let value = inb(port) | (1 << irq_line);
+        outb(port, value);
+    }
+}
+
+/// Unmask (enable) a specific IRQ line
+pub fn clear_mask(mut irq_line: u8) {
+    let port = if irq_line < 8 {
+        PIC1_DATA
+    } else {
+        irq_line -= 8;
+        PIC2_DATA
+    };
+    unsafe {
+        let value = inb(port) & !(1 << irq_line);
+        outb(port, value);
+    }
 }
 
 pub fn init() -> Result<()> {
     unsafe {
-        // 1. Remap the PIC vectors to 32 and 40
-        remap_pic(32, 40);
-        unmask_irq(0);
-        unmask_irq(1);
-        unmask_irq(2);
+        let low: u32;
+        let high: u32;
+        core::arch::asm!("rdmsr", in("ecx") 0x1B, out("eax") low, out("edx") high);
+        let new_low = low & !(1 << 11); // Clear bit 11 (Enable bit)
+        core::arch::asm!("wrmsr", in("ecx") 0x1B, in("eax") new_low, in("edx") high);
+
+        remap_pic(0x20, 0x28);
     }
     Ok(())
+}
+
+pub fn send_eoi(irq: u8) {
+    if irq >= 8 {
+        unsafe { outb(PIC2_COMMAND, PIC_EOI) };
+    }
+    unsafe { outb(PIC1_COMMAND, PIC_EOI) };
+}
+
+// ... rest of your register reading functions remain the same ...
+
+unsafe fn pic_get_irq_reg(ocw3: u8) -> u16 {
+    unsafe {
+        outb(PIC1_COMMAND, ocw3);
+    }
+    unsafe {
+        outb(PIC2_COMMAND, ocw3);
+    }
+
+    ((unsafe { inb(PIC2_COMMAND) } as u16) << 8) | (unsafe { inb(PIC1_COMMAND) } as u16)
+}
+
+#[inline]
+pub unsafe fn pic_get_irr() -> u16 {
+    unsafe { pic_get_irq_reg(PIC_READ_IRR) }
+}
+
+#[inline]
+pub unsafe fn pic_get_isr() -> u16 {
+    unsafe { pic_get_irq_reg(PIC_READ_ISR) }
+}
+
+pub fn disable() {
+    unsafe {
+        // Writing 0xFF to the data ports masks all interrupts on the 8259 PIC
+        crate::arch::x86_64::asm::outb(0x21, 0xFF);
+        crate::arch::x86_64::asm::outb(0xA1, 0xFF);
+    }
 }

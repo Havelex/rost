@@ -16,6 +16,7 @@ pub fn sleep(ms: usize) {
     let ticks_to_wait = ms / 10;
 
     while get_ticks() < start_ticks + ticks_to_wait {
+        print!("{}", get_ticks());
         core::hint::spin_loop();
     }
 }
