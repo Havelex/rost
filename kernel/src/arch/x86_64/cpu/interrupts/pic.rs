@@ -83,12 +83,6 @@ pub fn clear_mask(mut irq_line: u8) {
 
 pub fn init() -> Result<()> {
     unsafe {
-        let low: u32;
-        let high: u32;
-        core::arch::asm!("rdmsr", in("ecx") 0x1B, out("eax") low, out("edx") high);
-        let new_low = low & !(1 << 11); // Clear bit 11 (Enable bit)
-        core::arch::asm!("wrmsr", in("ecx") 0x1B, in("eax") new_low, in("edx") high);
-
         remap_pic(0x20, 0x28);
     }
     Ok(())
