@@ -1,4 +1,4 @@
-use crate::boot::limine_helpers::{FB_REQUEST, HDDM_REQUEST, MEM_MAP_REQUEST};
+use crate::boot::limine_helpers::{FB_REQUEST, HDDM_REQUEST, KERNEL_ADDRESS_REQUEST, MEM_MAP_REQUEST};
 use spin::Once;
 
 pub const MAX_REGIONS: usize = 128;
@@ -39,6 +39,10 @@ pub struct BootInfo {
     pub framebuffer: Option<FramebufferInfo>,
     pub memory_map: Option<MemMapInfo>,
     pub offset: Option<usize>,
+    /// Physical base address of the kernel image (from Limine KernelAddressRequest).
+    pub kernel_phys_base: Option<usize>,
+    /// Virtual base address of the kernel image (from Limine KernelAddressRequest).
+    pub kernel_virt_base: Option<usize>,
 }
 
 impl BootInfo {
@@ -112,10 +116,16 @@ impl BootInfo {
 
         let mem_map = MEMORY_MAP_INFO.call_once(|| unsafe { &REGIONS[..count] });
 
+        let kernel_addr_response = KERNEL_ADDRESS_REQUEST
+            .response()
+            .expect("Limine kernel address response missing");
+
         BootInfo {
             framebuffer: fb_info,
             memory_map: Some(MemMapInfo { regions: mem_map }),
             offset: Some(hhdm_offset),
+            kernel_phys_base: Some(kernel_addr_response.physical_base as usize),
+            kernel_virt_base: Some(kernel_addr_response.virtual_base as usize),
         }
     }
 }

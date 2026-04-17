@@ -30,6 +30,7 @@ impl From<MemoryRegionInfo> for MemoryRegion {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct MemMap {
     pub regions: [MemoryRegion; MAX_REGIONS],
     pub count: usize,
@@ -54,7 +55,7 @@ impl From<MemMapInfo> for MemMap {
 
             let converted = MemoryRegion::from(*region);
 
-            total_mem_size = total_mem_size.max(converted.base + converted.length);
+            total_mem_size = total_mem_size.max(converted.base.saturating_add(converted.length));
 
             regions[i] = converted;
             count += 1;

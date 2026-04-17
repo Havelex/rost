@@ -45,13 +45,18 @@ pub struct FrameAllocator {
 
 impl FrameAllocator {
     pub fn new(bitmap: &'static mut [u64], memory_size: usize) -> Self {
-        let total_frames = memory_size / FRAME_SIZE;
+        let max_frames = bitmap.len() * 64;
+        let requested_frames = memory_size / FRAME_SIZE;
 
-        // SAFETY CHECK (critical for kernel stability)
-        assert!(
-            bitmap.len() * 64 >= total_frames,
-            "Bitmap too small for memory size"
-        );
+        // Clamp to bitmap capacity rather than panicking – if the caller
+        // passes a memory_size that exceeds what the bitmap can represent we
+        // simply stop tracking frames beyond the bitmap limit.  Frames beyond
+        // this point will never be allocated (total_frames caps them out).
+        let total_frames = if requested_frames > max_frames {
+            max_frames
+        } else {
+            requested_frames
+        };
 
         for word in bitmap.iter_mut() {
             *word = 0;

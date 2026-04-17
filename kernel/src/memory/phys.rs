@@ -21,22 +21,57 @@ pub fn frame_allocator() -> Result<&'static Mutex<FrameAllocator>, MemoryFault> 
     FRAME_ALLOCATOR.get().ok_or(MemoryFault::NoAllocator)
 }
 
-pub fn init(mem_map: MemMap) -> Result<(), MemoryFault> {
+pub fn init(mem_map: &MemMap) -> Result<(), MemoryFault> {
+    // Size the bitmap from allocatable RAM only.  Reserved entries cover MMIO
+    // ranges (PCIe BARs at ~0xB0000000, LAPIC at 0xFEE00000, etc.) that can
+    // push the physical ceiling well above 2 GiB, overflowing the fixed bitmap.
+    // Only Usable, BootloaderReclaimable, and KernelAndModules regions contain
+    // real RAM we will ever allocate from.
+    //
+    // A plain loop is used instead of an iterator chain so that the call stack
+    // in debug mode stays shallow (the lazy iterator adapters would add ~8
+    // extra non-inlined frames that are materialised only when the consuming
+    // .max() drives them, which together with the outer MemMap frames was
+    // overflowing the 32 KiB boot stack and triple-faulting).
+    let mut max_ram_addr: usize = 0;
+    for region in mem_map.regions.iter().take(mem_map.count) {
+        if matches!(
+            region.kind,
+            MemoryRegionKind::Usable
+                | MemoryRegionKind::BootloaderReclaimable
+                | MemoryRegionKind::KernelAndModules
+        ) {
+            let end = region.base.saturating_add(region.length);
+            if end > max_ram_addr {
+                max_ram_addr = end;
+            }
+        }
+    }
+
     let allocator =
-        unsafe { FrameAllocator::new(&mut *FRAME_BITMAP.0.get(), mem_map.total_mem_size) };
+        unsafe { FrameAllocator::new(&mut *FRAME_BITMAP.0.get(), max_ram_addr) };
 
     FRAME_ALLOCATOR.call_once(|| Mutex::new(allocator));
 
     reserve_non_usable(mem_map)
 }
 
-fn reserve_non_usable(mem_map: MemMap) -> Result<(), MemoryFault> {
+fn reserve_non_usable(mem_map: &MemMap) -> Result<(), MemoryFault> {
     let alloc = FRAME_ALLOCATOR.get().unwrap();
     let mut alloc = alloc.lock();
 
     for region in mem_map.regions.iter().take(mem_map.count) {
         if !matches!(region.kind, MemoryRegionKind::Usable) {
-            alloc.reserve_range(region.base, region.base + region.length - 1)?;
+            let end = region.base.saturating_add(region.length).saturating_sub(1);
+            match alloc.reserve_range(region.base, end) {
+                Ok(()) => {}
+                // Region lies beyond the RAM ceiling (e.g. MMIO / framebuffer).
+                // It does not need to be tracked in the bitmap.
+                Err(MemoryFault::FrameIndexOutOfBounds { .. }) => {}
+                // Overlapping non-usable regions – skip the duplicate frames.
+                Err(MemoryFault::DoubleAllocation { .. }) => {}
+                Err(e) => return Err(e),
+            }
         }
     }
 

@@ -6,6 +6,7 @@ use crate::{
     cpu::Cpu,
     error::Result,
     logger::indent::{pop_indent, push_indent},
+    memory::regions::MemMap,
     time::sleep,
 };
 
@@ -30,22 +31,31 @@ pub fn init(info: BootInfo) -> ! {
     log_info!("Initializing Kernel...");
     push_indent();
     init_step("Initializing early architecture", Arch::init_early).unwrap();
+
+    // ── Memory initialisation ────────────────────────────────────────────────
+    let mem_map: MemMap = info
+        .memory_map
+        .expect("Limine memory map missing")
+        .into();
+    let hhdm_offset = info.offset.expect("Limine HHDM offset missing");
+    let kernel_phys_base = info.kernel_phys_base.expect("Limine kernel phys base missing");
+    let kernel_virt_base = info.kernel_virt_base.expect("Limine kernel virt base missing");
+
+    init_step("Initializing physical memory", || {
+        memory::init(&mem_map)
+    })
+    .unwrap();
+
+    // Supply arch-specific boot params through the Architecture trait.
+    Arch::set_boot_params(hhdm_offset, kernel_phys_base, kernel_virt_base);
+
+    init_step("Initializing virtual memory (paging)", Arch::init_memory).unwrap();
+    // ── End memory initialisation ─────────────────────────────────────────────
+
     init_step("Initializing interrupts...", Arch::init_interrupts).unwrap();
 
     println!("\nFinishing boot");
-    // unsafe {
-    //     core::arch::asm!("int $32");
-    // }
-    unsafe {
-        log_info!(
-            "PIC IRR: {:#04x}",
-            crate::arch::x86_64::cpu::interrupts::pic::pic_get_irr()
-        );
-        log_info!(
-            "PIC ISR: {:#04x}",
-            crate::arch::x86_64::cpu::interrupts::pic::pic_get_isr()
-        );
-    }
+
     for _ in 0..3 {
         sleep(1000);
         print!(".");
@@ -79,3 +89,4 @@ where
         }
     }
 }
+
