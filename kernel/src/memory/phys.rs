@@ -21,33 +21,32 @@ pub fn frame_allocator() -> Result<&'static Mutex<FrameAllocator>, MemoryFault> 
     FRAME_ALLOCATOR.get().ok_or(MemoryFault::NoAllocator)
 }
 
-/// Initialise the physical frame allocator.
-///
-/// Takes `mem_map` by reference to avoid placing a second 4 KiB copy of the
-/// memory map on the kernel's 32 KiB boot stack.  The caller in `memory::init`
-/// stores the MemMap in a static `Once` and passes the resulting
-/// `&'static MemMap` here.
 pub fn init(mem_map: &MemMap) -> Result<(), MemoryFault> {
     // Size the bitmap from allocatable RAM only.  Reserved entries cover MMIO
     // ranges (PCIe BARs at ~0xB0000000, LAPIC at 0xFEE00000, etc.) that can
     // push the physical ceiling well above 2 GiB, overflowing the fixed bitmap.
     // Only Usable, BootloaderReclaimable, and KernelAndModules regions contain
     // real RAM we will ever allocate from.
-    let max_ram_addr = mem_map
-        .regions
-        .iter()
-        .take(mem_map.count)
-        .filter(|r| {
-            matches!(
-                r.kind,
-                MemoryRegionKind::Usable
-                    | MemoryRegionKind::BootloaderReclaimable
-                    | MemoryRegionKind::KernelAndModules
-            )
-        })
-        .map(|r| r.base.saturating_add(r.length))
-        .max()
-        .unwrap_or(0);
+    //
+    // A plain loop is used instead of an iterator chain so that the call stack
+    // in debug mode stays shallow (the lazy iterator adapters would add ~8
+    // extra non-inlined frames that are materialised only when the consuming
+    // .max() drives them, which together with the outer MemMap frames was
+    // overflowing the 32 KiB boot stack and triple-faulting).
+    let mut max_ram_addr: usize = 0;
+    for region in mem_map.regions.iter().take(mem_map.count) {
+        if matches!(
+            region.kind,
+            MemoryRegionKind::Usable
+                | MemoryRegionKind::BootloaderReclaimable
+                | MemoryRegionKind::KernelAndModules
+        ) {
+            let end = region.base.saturating_add(region.length);
+            if end > max_ram_addr {
+                max_ram_addr = end;
+            }
+        }
+    }
 
     let allocator =
         unsafe { FrameAllocator::new(&mut *FRAME_BITMAP.0.get(), max_ram_addr) };

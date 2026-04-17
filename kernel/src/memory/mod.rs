@@ -13,12 +13,8 @@ pub mod regions;
 
 static MEM_MAP_ONCE: Once<MemMap> = Once::new();
 
-pub fn init(mem_map: MemMap) -> Result<()> {
-    // Store the MemMap in static storage and use the returned reference to call
-    // phys::init.  Passing the &'static MemMap reference (8 bytes) instead of
-    // the value (4 KiB) eliminates one large stack copy from the deepest call
-    // frames, keeping the kernel well inside the 32 KiB boot stack.
-    let stored = MEM_MAP_ONCE.call_once(|| mem_map);
+pub fn init(mem_map: &MemMap) -> Result<()> {
+    let stored = MEM_MAP_ONCE.call_once(|| *mem_map);
     phys::init(stored).map_err(|_| KernelError::OutOfMemory)
 }
 

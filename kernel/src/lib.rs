@@ -42,7 +42,7 @@ pub fn init(info: BootInfo) -> ! {
     let kernel_virt_base = info.kernel_virt_base.expect("Limine kernel virt base missing");
 
     init_step("Initializing physical memory", || {
-        memory::init(mem_map)
+        memory::init(&mem_map)
     })
     .unwrap();
 
