@@ -26,15 +26,15 @@ static TOTAL_PHYS: AtomicUsize = AtomicUsize::new(0);
 bitflags! {
     #[derive(Clone, Copy, PartialEq, Eq)]
     pub struct PageFlags: u64 {
-        const PRESENT       = 1 << 0;
-        const WRITABLE      = 1 << 1;
-        const USER          = 1 << 2;
-        const WRITE_THROUGH = 1 << 3;
-        const CACHE_DISABlE = 1 << 4;
-        /// Page Size: when set on a PDPT entry → 1 GiB page;
-        /// when set on a PD entry → 2 MiB page.
-        const HUGE          = 1 << 7;
-        const NO_EXECUTE    = 1 << 63;
+        const PRESENT        = 1 << 0;
+        const WRITABLE       = 1 << 1;
+        const USER           = 1 << 2;
+        const WRITE_THROUGH  = 1 << 3;
+        const CACHE_DISABLE  = 1 << 4;
+        /// Page Size: when set on a PDPT entry → 1 GiB page.
+        /// (2 MiB PD-level huge pages are not yet used by this implementation.)
+        const HUGE           = 1 << 7;
+        const NO_EXECUTE     = 1 << 63;
     }
 }
 
@@ -291,6 +291,11 @@ fn map_4kib(
 ///    higher-half virtual base.
 /// 4. Load CR3 with the new PML4 physical address.
 /// 5. Verify the mapping and register the global mapper.
+
+/// Minimum number of bytes to map for the kernel image even when the Limine
+/// memory map does not contain a `KernelAndModules` entry covering it.
+/// 8 MiB is a generous upper bound for a debug build of this kernel.
+const MIN_KERNEL_MAP_SIZE: usize = 8 * 1024 * 1024;
 pub fn init_paging(
     hhdm_offset: usize,
     kernel_phys_base: usize,
@@ -338,7 +343,7 @@ pub fn init_paging(
 
     let kernel_size = kernel_end_phys
         .saturating_sub(kernel_phys_base)
-        .max(8 * 1024 * 1024); // at least 8 MiB
+        .max(MIN_KERNEL_MAP_SIZE);
 
     // 5. Map the kernel image (PRESENT | WRITABLE).
     const PAGE: usize = 0x1000;
@@ -404,7 +409,7 @@ pub fn map_mmio_region(phys_start: usize, size: usize) -> Result<usize, KernelFa
     let offset_in_page = phys_start - phys_base;
     let num_pages = (offset_in_page + size + PAGE - 1) / PAGE;
 
-    let flags = PageFlags::WRITABLE | PageFlags::NO_EXECUTE | PageFlags::CACHE_DISABlE;
+    let flags = PageFlags::WRITABLE | PageFlags::NO_EXECUTE | PageFlags::CACHE_DISABLE;
 
     {
         let mut m = mapper().lock();
