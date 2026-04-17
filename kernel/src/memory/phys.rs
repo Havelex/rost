@@ -21,12 +21,18 @@ pub fn frame_allocator() -> Result<&'static Mutex<FrameAllocator>, MemoryFault> 
     FRAME_ALLOCATOR.get().ok_or(MemoryFault::NoAllocator)
 }
 
-pub fn init(mem_map: MemMap) -> Result<(), MemoryFault> {
+/// Initialise the physical frame allocator.
+///
+/// Takes `mem_map` by reference to avoid placing a second 4 KiB copy of the
+/// memory map on the kernel's 32 KiB boot stack.  The caller in `memory::init`
+/// stores the MemMap in a static `Once` and passes the resulting
+/// `&'static MemMap` here.
+pub fn init(mem_map: &MemMap) -> Result<(), MemoryFault> {
     // Size the bitmap from allocatable RAM only.  Reserved entries cover MMIO
     // ranges (PCIe BARs at ~0xB0000000, LAPIC at 0xFEE00000, etc.) that can
-    // push the physical ceiling well above 2 GiB, overflowing the fixed bitmap
-    // and firing the capacity assert.  Only Usable, BootloaderReclaimable, and
-    // KernelAndModules regions contain real RAM we will ever allocate from.
+    // push the physical ceiling well above 2 GiB, overflowing the fixed bitmap.
+    // Only Usable, BootloaderReclaimable, and KernelAndModules regions contain
+    // real RAM we will ever allocate from.
     let max_ram_addr = mem_map
         .regions
         .iter()
@@ -39,7 +45,7 @@ pub fn init(mem_map: MemMap) -> Result<(), MemoryFault> {
                     | MemoryRegionKind::KernelAndModules
             )
         })
-        .map(|r| r.base + r.length)
+        .map(|r| r.base.saturating_add(r.length))
         .max()
         .unwrap_or(0);
 
@@ -51,7 +57,7 @@ pub fn init(mem_map: MemMap) -> Result<(), MemoryFault> {
     reserve_non_usable(mem_map)
 }
 
-fn reserve_non_usable(mem_map: MemMap) -> Result<(), MemoryFault> {
+fn reserve_non_usable(mem_map: &MemMap) -> Result<(), MemoryFault> {
     let alloc = FRAME_ALLOCATOR.get().unwrap();
     let mut alloc = alloc.lock();
 
