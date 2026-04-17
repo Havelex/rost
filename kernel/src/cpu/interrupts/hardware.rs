@@ -6,7 +6,6 @@ use crate::{
 pub fn handle_hardware_interrupt(irq: u8) {
     match irq {
         0 => {
-            println!("TimerInterrupt");
             increment_ticks();
         }
         1 => { /* Keyboard logic */ }

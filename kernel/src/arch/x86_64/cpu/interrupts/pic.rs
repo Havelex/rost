@@ -16,6 +16,8 @@ const ICW1_ICW4: u8 = 0x01;
 const ICW4_8086: u8 = 0x01;
 
 const CASCADE_IRQ: u8 = 2;
+pub const IRQ_PIT_TIMER: u8 = 0;
+pub const IRQ_CASCADE: u8 = 2;
 
 const PIC_READ_IRR: u8 = 0x0a;
 const PIC_READ_ISR: u8 = 0x0b;
@@ -84,6 +86,9 @@ pub fn clear_mask(mut irq_line: u8) {
 pub fn init() -> Result<()> {
     unsafe {
         remap_pic(0x20, 0x28);
+        // Mask all IRQ lines after remap; callers must explicitly unmask what they need.
+        outb(PIC1_DATA, 0xFF);
+        outb(PIC2_DATA, 0xFF);
     }
     Ok(())
 }
