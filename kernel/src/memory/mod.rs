@@ -1,6 +1,9 @@
 use spin::Once;
 
-use crate::memory::regions::MemMap;
+use crate::{
+    error::{KernelError, Result},
+    memory::regions::MemMap,
+};
 
 pub mod alloc;
 mod mem;
@@ -10,10 +13,10 @@ pub mod regions;
 
 static MEM_MAP_ONCE: Once<MemMap> = Once::new();
 
-pub fn init(mem_map: MemMap) {
+pub fn init(mem_map: MemMap) -> Result<()> {
     // Cache the MemMap so the architecture layer can retrieve it for paging.
     MEM_MAP_ONCE.call_once(|| mem_map);
-    let _ = phys::init(mem_map);
+    phys::init(mem_map).map_err(|_| KernelError::OutOfMemory)
 }
 
 /// Returns a reference to the memory map recorded at boot.

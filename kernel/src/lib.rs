@@ -42,13 +42,12 @@ pub fn init(info: BootInfo) -> ! {
     let kernel_virt_base = info.kernel_virt_base.expect("Limine kernel virt base missing");
 
     init_step("Initializing physical memory", || {
-        memory::init(mem_map);
-        Ok(())
+        memory::init(mem_map)
     })
     .unwrap();
 
-    // Supply arch-specific boot params before calling init_memory().
-    crate::arch::x86_64::set_boot_params(hhdm_offset, kernel_phys_base, kernel_virt_base);
+    // Supply arch-specific boot params through the Architecture trait.
+    Arch::set_boot_params(hhdm_offset, kernel_phys_base, kernel_virt_base);
 
     init_step("Initializing virtual memory (paging)", Arch::init_memory).unwrap();
     // ── End memory initialisation ─────────────────────────────────────────────
@@ -56,16 +55,7 @@ pub fn init(info: BootInfo) -> ! {
     init_step("Initializing interrupts...", Arch::init_interrupts).unwrap();
 
     println!("\nFinishing boot");
-    unsafe {
-        log_info!(
-            "PIC IRR: {:#04x}",
-            crate::arch::x86_64::cpu::interrupts::pic::pic_get_irr()
-        );
-        log_info!(
-            "PIC ISR: {:#04x}",
-            crate::arch::x86_64::cpu::interrupts::pic::pic_get_isr()
-        );
-    }
+
     for _ in 0..3 {
         sleep(1000);
         print!(".");

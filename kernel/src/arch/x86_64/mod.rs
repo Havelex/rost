@@ -34,15 +34,6 @@ static KERNEL_PHYS_BASE: core::sync::atomic::AtomicUsize =
 static KERNEL_VIRT_BASE: core::sync::atomic::AtomicUsize =
     core::sync::atomic::AtomicUsize::new(0);
 
-/// Called from `lib.rs` before `init_memory()` to supply the boot-time
-/// addresses that paging setup needs.
-pub fn set_boot_params(hhdm_offset: usize, kernel_phys_base: usize, kernel_virt_base: usize) {
-    use core::sync::atomic::Ordering;
-    HHDM_OFFSET.store(hhdm_offset, Ordering::Release);
-    KERNEL_PHYS_BASE.store(kernel_phys_base, Ordering::Release);
-    KERNEL_VIRT_BASE.store(kernel_virt_base, Ordering::Release);
-}
-
 impl Architecture for X86_64 {
     type Mapper = X86Mapper;
     type Cpu = X86Cpu;
@@ -61,6 +52,13 @@ impl Architecture for X86_64 {
             Ok(())
         })?;
         Ok(())
+    }
+
+    fn set_boot_params(hhdm_offset: usize, kernel_phys_base: usize, kernel_virt_base: usize) {
+        use core::sync::atomic::Ordering;
+        HHDM_OFFSET.store(hhdm_offset, Ordering::Release);
+        KERNEL_PHYS_BASE.store(kernel_phys_base, Ordering::Release);
+        KERNEL_VIRT_BASE.store(kernel_virt_base, Ordering::Release);
     }
 
     fn init_memory() -> Result<()> {

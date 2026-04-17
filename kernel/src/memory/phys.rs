@@ -22,8 +22,28 @@ pub fn frame_allocator() -> Result<&'static Mutex<FrameAllocator>, MemoryFault> 
 }
 
 pub fn init(mem_map: MemMap) -> Result<(), MemoryFault> {
+    // Size the bitmap from actual physical RAM only.  Framebuffer, Bad Memory,
+    // and Unknown entries can have very high physical addresses (e.g. the VESA
+    // framebuffer is often at 0xFD000000) that would overflow the fixed-size
+    // bitmap and trigger the capacity assert.
+    let max_ram_addr = mem_map
+        .regions
+        .iter()
+        .take(mem_map.count)
+        .filter(|r| {
+            !matches!(
+                r.kind,
+                MemoryRegionKind::Framebuffer
+                    | MemoryRegionKind::BadMemory
+                    | MemoryRegionKind::Unknown(_)
+            )
+        })
+        .map(|r| r.base + r.length)
+        .max()
+        .unwrap_or(0);
+
     let allocator =
-        unsafe { FrameAllocator::new(&mut *FRAME_BITMAP.0.get(), mem_map.total_mem_size) };
+        unsafe { FrameAllocator::new(&mut *FRAME_BITMAP.0.get(), max_ram_addr) };
 
     FRAME_ALLOCATOR.call_once(|| Mutex::new(allocator));
 
@@ -36,7 +56,16 @@ fn reserve_non_usable(mem_map: MemMap) -> Result<(), MemoryFault> {
 
     for region in mem_map.regions.iter().take(mem_map.count) {
         if !matches!(region.kind, MemoryRegionKind::Usable) {
-            alloc.reserve_range(region.base, region.base + region.length - 1)?;
+            let end = region.base.saturating_add(region.length).saturating_sub(1);
+            match alloc.reserve_range(region.base, end) {
+                Ok(()) => {}
+                // Region lies beyond the RAM ceiling (e.g. MMIO / framebuffer).
+                // It does not need to be tracked in the bitmap.
+                Err(MemoryFault::FrameIndexOutOfBounds { .. }) => {}
+                // Overlapping non-usable regions – skip the duplicate frames.
+                Err(MemoryFault::DoubleAllocation { .. }) => {}
+                Err(e) => return Err(e),
+            }
         }
     }
 

@@ -20,10 +20,13 @@ pub trait Architecture {
     // CPU
     fn init_early() -> Result<()>;
 
-    // intterupts
+    // interrupts
     fn init_interrupts() -> Result<()>;
 
     // memory
+    /// Store architecture-specific boot parameters (HHDM offset, kernel physical
+    /// and virtual base addresses) that `init_memory` will read later.
+    fn set_boot_params(hhdm_offset: usize, kernel_phys_base: usize, kernel_virt_base: usize);
     fn init_memory() -> Result<()>;
 
     // getter
