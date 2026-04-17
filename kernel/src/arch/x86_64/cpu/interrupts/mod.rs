@@ -180,6 +180,9 @@ pub fn init() -> Result<()> {
             }
             log_warn!("x2APIC not available. Using legacy PIC...");
             pic::init()?;
+            pic::clear_mask(0);
+            pic::clear_mask(1);
+            pic::clear_mask(2);
         }
         Ok(())
     })?;

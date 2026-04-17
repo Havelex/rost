@@ -32,7 +32,7 @@ pub fn init(info: BootInfo) -> ! {
     init_step("Initializing early architecture", Arch::init_early).unwrap();
     init_step("Initializing interrupts...", Arch::init_interrupts).unwrap();
 
-    print!("\nFinishing boot");
+    println!("\nFinishing boot");
     // unsafe {
     //     core::arch::asm!("int $32");
     // }
