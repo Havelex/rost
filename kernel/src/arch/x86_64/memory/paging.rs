@@ -213,8 +213,13 @@ pub fn mapper() -> &'static Mutex<X86Mapper> {
 // Paging initialisation
 // ──────────────────────────────────────────────────────────────────────────────
 
-/// Allocate a zeroed 4 KiB physical frame and return a static mutable
-/// reference to it through the HHDM.
+/// Allocate a zeroed 4 KiB physical frame and return a mutable reference to
+/// it at the virtual address determined by the current HHDM_OFFSET.
+///
+/// When `HHDM_OFFSET == 0` (i.e., during `init_paging` before CR3 is
+/// loaded), the returned pointer uses identity mapping (virt == phys),
+/// which is valid in the Limine boot environment.
+/// After `init_paging` sets `HHDM_OFFSET`, the pointer is HHDM-virtual.
 fn alloc_page_table() -> Result<&'static mut PageTable, KernelFault> {
     let frame = crate::memory::phys::frame_allocator()?
         .lock()
@@ -284,13 +289,17 @@ fn map_4kib(
 /// Build a fresh set of page tables, load CR3, and initialise the global mapper.
 ///
 /// Steps:
-/// 1. Record the HHDM offset so frame accesses go through the correct virtual
-///    address.
+/// 1. Allocate and zero the PML4 using identity mapping (phys == virt).
+///    HHDM_OFFSET is kept at 0 so that alloc_page_table / virt_to_phys /
+///    phys_to_virt all use identity mapping during construction, which is
+///    valid under the Limine bootloader's page tables.
 /// 2. Map all physical memory via 1 GiB HHDM huge pages.
 /// 3. Map the kernel image (4 KiB pages) from its physical base to its
 ///    higher-half virtual base.
 /// 4. Load CR3 with the new PML4 physical address.
-/// 5. Verify the mapping and register the global mapper.
+/// 5. Publish HHDM_OFFSET so subsequent accesses use the correct higher-half
+///    addresses.
+/// 6. Verify the mapping and register the global mapper.
 
 /// Minimum number of bytes to map for the kernel image even when the Limine
 /// memory map does not contain a `KernelAndModules` entry covering it.
@@ -302,10 +311,14 @@ pub fn init_paging(
     kernel_virt_base: usize,
     mem_map: &MemMap,
 ) -> Result<(), KernelFault> {
-    // 1. Record the HHDM offset so alloc_page_table / phys_to_virt work.
-    HHDM_OFFSET.store(hhdm_offset, Ordering::Release);
-
-    // 2. Allocate the top-level PML4 via the HHDM.
+    // 1. Allocate the top-level PML4.
+    //
+    //    HHDM_OFFSET is still 0 at this point, so alloc_page_table(),
+    //    virt_to_phys(), and phys_to_virt() all operate with identity
+    //    mapping (virtual address == physical address).  This is safe
+    //    because the Limine bootloader identity-maps physical memory,
+    //    letting us write to newly-allocated frames before our own CR3 is
+    //    live.  HHDM_OFFSET will be published after CR3 is loaded.
     let pml4_phys = {
         let frame = crate::memory::phys::frame_allocator()?
             .lock()
@@ -313,11 +326,13 @@ pub fn init_paging(
             .map_err(PageFault::OutOfFrames)?;
         frame.addr()
     };
-    let pml4_virt = (hhdm_offset + pml4_phys) as *mut PageTable;
-    unsafe { (*pml4_virt).zero() };
-    let pml4 = unsafe { &mut *pml4_virt };
 
-    // 3. Map all physical memory with 1 GiB huge pages so that every frame is
+    // Zero the PML4 through the identity mapping (phys == virt).
+    let pml4_id = pml4_phys as *mut PageTable;
+    unsafe { (*pml4_id).zero() };
+    let pml4 = unsafe { &mut *pml4_id };
+
+    // 2. Map all physical memory with 1 GiB huge pages so that every frame is
     //    reachable after we switch CR3.
     let total_phys = mem_map.total_mem_size;
     TOTAL_PHYS.store(total_phys, Ordering::Release);
@@ -329,7 +344,7 @@ pub fn init_paging(
         map_1gib(pml4, virt, phys)?;
     }
 
-    // 4. Determine kernel size from the memory map (KernelAndModules entry).
+    // 3. Determine kernel size from the memory map (KernelAndModules entry).
     let kernel_end_phys = mem_map
         .regions
         .iter()
@@ -345,7 +360,7 @@ pub fn init_paging(
         .saturating_sub(kernel_phys_base)
         .max(MIN_KERNEL_MAP_SIZE);
 
-    // 5. Map the kernel image (PRESENT | WRITABLE).
+    // 4. Map the kernel image (PRESENT | WRITABLE).
     const PAGE: usize = 0x1000;
     let num_pages = (kernel_size + PAGE - 1) / PAGE;
     for i in 0..num_pages {
@@ -354,7 +369,12 @@ pub fn init_paging(
         map_4kib(pml4, virt, phys, PageFlags::WRITABLE)?;
     }
 
-    // 6. Load the new CR3 (flush TLB completely).
+    // 5. Load the new CR3 (flush TLB completely).
+    //    Our new PML4 covers:
+    //      - HHDM: 1 GiB huge pages for all physical RAM (hhdm_offset + phys)
+    //      - Kernel image: 4 KiB pages at kernel_virt_base
+    //    The Limine stack lives in BootloaderReclaimable RAM, which is within
+    //    total_phys and therefore covered by our HHDM.
     log_info!("  [paging] HHDM offset: {:#018x}", hhdm_offset);
     log_info!("  [paging] PML4 phys:   {:#018x}", pml4_phys);
 
@@ -366,16 +386,24 @@ pub fn init_paging(
         );
     }
 
+    // 6. Our HHDM is now live.  Publish the offset so that all future
+    //    phys_to_virt() / virt_to_phys() calls use the correct higher-half
+    //    addresses.
+    HHDM_OFFSET.store(hhdm_offset, Ordering::Release);
+
     // 7. Verify: read a byte through the HHDM mapping we just built.
     let test_virt = hhdm_offset as *const u8;
     let _test_byte = unsafe { test_virt.read_volatile() };
     log_ok!(
-        "  [paging] HHDM read-back OK (phys 0x0 → virt {:#018x})",
+        "  [paging] HHDM read-back OK (phys 0x0 \u{2192} virt {:#018x})",
         hhdm_offset
     );
 
-    // 8. Register the global mapper.
-    init(unsafe { &mut *pml4_virt });
+    // 8. Register the global mapper with the HHDM-virtual PML4 pointer.
+    //    Now that HHDM_OFFSET is set, hhdm_offset + pml4_phys is the correct
+    //    virtual address for the PML4.
+    let pml4_hhdm = (hhdm_offset + pml4_phys) as *mut PageTable;
+    init(unsafe { &mut *pml4_hhdm });
 
     Ok(())
 }
