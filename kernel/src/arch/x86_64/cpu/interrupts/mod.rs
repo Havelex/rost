@@ -76,7 +76,6 @@ pub extern "C" fn x86_64_interrupt_handler(ctx: *const InterruptContext) {
     }
 
     handle_interrupt(GenericInterrupt { rip: ctx.rip, kind });
-    send_eoi((ctx.vector - 32) as u8);
 }
 
 fn dump_page_fault_details(error_code: u64) {

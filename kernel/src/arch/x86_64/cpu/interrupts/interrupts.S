@@ -5,7 +5,7 @@
 .macro generate_isr num
     .global isr\num
     isr\num:
-        .if \num == 8 || (\num >= 10 && \num <= 14) || \num == 17 || \num == 21
+        .if \num == 8 || (\num >= 10 && \num <= 14) || \num == 17
             pushq $\num
         .else
             pushq $0
@@ -54,12 +54,9 @@ common_isr:
     pushq %r15
 
     movq %rsp, %rdi
-    movq %rsp, %rbp    # Save original RSP
-    andq $-16, %rsp    # Force 16-byte alignment
-
+    subq $8, %rsp
     call x86_64_interrupt_handler
-
-    movq %rbp, %rsp    # Restore original RSP before popping
+    addq $8, %rsp
 
     # Restore registers
     popq %r15
