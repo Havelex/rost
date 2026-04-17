@@ -30,6 +30,7 @@ impl From<MemoryRegionInfo> for MemoryRegion {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct MemMap {
     pub regions: [MemoryRegion; MAX_REGIONS],
     pub count: usize,

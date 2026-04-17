@@ -1,6 +1,6 @@
 use limine::{
     BaseRevision, RequestsEndMarker, RequestsStartMarker,
-    request::{FramebufferRequest, HhdmRequest, MemmapRequest, StackSizeRequest},
+    request::{ExecutableAddressRequest, FramebufferRequest, HhdmRequest, MemmapRequest, StackSizeRequest},
 };
 
 #[used]
@@ -26,6 +26,10 @@ pub static HDDM_REQUEST: HhdmRequest = HhdmRequest::new();
 #[used]
 #[unsafe(link_section = ".limine_reqs")]
 static STACK_REQUEST: StackSizeRequest = StackSizeRequest::new(0x8000);
+
+#[used]
+#[unsafe(link_section = ".limine_reqs")]
+pub static KERNEL_ADDRESS_REQUEST: ExecutableAddressRequest = ExecutableAddressRequest::new();
 
 #[used]
 #[unsafe(link_section = ".limine_req_end")]
