@@ -6,12 +6,8 @@ use crate::{
         x86_64::{
             cpu::{
                 X86Cpu,
-                interrupts::{
-                    self,
-                    apic::{has_apic, init_apic},
-                },
+                interrupts,
             },
-            interrupts::pic,
             memory::paging::{X86Mapper, mapper},
         },
     },

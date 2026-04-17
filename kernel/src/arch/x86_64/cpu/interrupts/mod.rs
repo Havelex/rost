@@ -1,5 +1,5 @@
 use crate::{
-    arch::x86_64::cpu::interrupts::apic::{has_apic, init_apic},
+    arch::x86_64::cpu::interrupts::apic::{has_apic, has_x2apic, init_apic},
     cpu::interrupts::{
         GenericInterrupt, InterruptKind, exceptions::ExceptionType, handle_interrupt,
     },
@@ -7,6 +7,20 @@ use crate::{
     init_step,
 };
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ControllerKind {
+    Pic,
+    X2Apic,
+}
+
+/// Vector number at which hardware (external) IRQs start.
+/// Vectors 0–31 are reserved for CPU exceptions; vectors 32+ map to IRQ lines.
+const HARDWARE_IRQ_VECTOR_BASE: u64 = 32;
+
+// Safety: both statics are written once during single-threaded init (before
+// interrupts are enabled) and are read-only afterwards.  A multi-core kernel
+// would need atomic/mutex protection here.
+static mut CONTROLLER: ControllerKind = ControllerKind::Pic;
 static mut SEND_EOI: fn(irq: u8) = pic::send_eoi;
 
 pub mod apic;
@@ -67,7 +81,7 @@ pub extern "C" fn x86_64_interrupt_handler(ctx: *const InterruptContext) {
             v => ExceptionType::Unknown(v), // Actually unknown vectors
         })
     } else {
-        InterruptKind::Hardware((ctx.vector - 32) as u8)
+        InterruptKind::Hardware((ctx.vector - HARDWARE_IRQ_VECTOR_BASE) as u8)
     };
 
     // Only dump registers for crashes, not for every timer tick!
@@ -76,6 +90,13 @@ pub extern "C" fn x86_64_interrupt_handler(ctx: *const InterruptContext) {
     }
 
     handle_interrupt(GenericInterrupt { rip: ctx.rip, kind });
+
+    // Only send EOI for hardware interrupts (vectors >= HARDWARE_IRQ_VECTOR_BASE).
+    // Exceptions and software interrupts must not trigger EOI.
+    if ctx.vector >= HARDWARE_IRQ_VECTOR_BASE {
+        let irq = (ctx.vector - HARDWARE_IRQ_VECTOR_BASE) as u8;
+        unsafe { (SEND_EOI)(irq) };
+    }
 }
 
 fn dump_page_fault_details(error_code: u64) {
@@ -138,23 +159,36 @@ pub fn init() -> Result<()> {
     log_ok!("Successfully returned from breakpoint.");
 
     init_step("Initializing Interrupt Controller...", || {
-        if has_apic() {
+        if has_apic() && has_x2apic() {
+            // x2APIC is MSR-based, so it works without paging (no MMIO mapping needed).
+            // We require x2APIC specifically; plain xAPIC needs MMIO at 0xFEE00000 which
+            // is not safe to access without an identity-mapped page table.
             unsafe {
+                CONTROLLER = ControllerKind::X2Apic;
                 SEND_EOI = |_: u8| {
                     apic::send_eoi();
                 };
             }
-            log_info!("APIC detected. Initializing...");
-            // Important: Disable the legacy PIC so it doesn't interfere
+            log_info!("x2APIC detected. Initializing...");
+            // Disable the legacy PIC (mask all IRQs) so it cannot raise spurious interrupts.
             pic::disable();
             unsafe { init_apic() };
         } else {
-            log_warn!("APIC not found. Falling back to legacy PIC...");
+            unsafe {
+                CONTROLLER = ControllerKind::Pic;
+                SEND_EOI = pic::send_eoi;
+            }
+            log_warn!("x2APIC not available. Using legacy PIC...");
             pic::init()?;
+            pic::clear_mask(0);
+            pic::clear_mask(1);
+            pic::clear_mask(2);
         }
         Ok(())
     })?;
     Ok(())
 }
 
-pub fn send_eoi(irq: u8) {}
+pub fn send_eoi(irq: u8) {
+    unsafe { (SEND_EOI)(irq) };
+}
