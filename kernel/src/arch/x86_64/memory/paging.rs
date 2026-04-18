@@ -1,6 +1,6 @@
 use bitflags::bitflags;
 use spin::{Mutex, Once};
-use core::sync::atomic::{AtomicUsize, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use crate::{
     memory::{
@@ -22,6 +22,12 @@ static HHDM_OFFSET: AtomicUsize = AtomicUsize::new(0);
 /// Used by `map_mmio_region` to detect whether an address has an existing
 /// HHDM huge-page mapping.
 static TOTAL_PHYS: AtomicUsize = AtomicUsize::new(0);
+
+/// Set to `true` after the new page tables are loaded into CR3.
+/// When `false`, physical addresses are used directly as virtual addresses
+/// (identity mapping, valid under the bootloader's page tables).
+/// When `true`, HHDM (`HHDM_OFFSET + phys`) is used for all frame accesses.
+static PAGING_ACTIVE: AtomicBool = AtomicBool::new(false);
 
 bitflags! {
     #[derive(Clone, Copy, PartialEq, Eq)]
@@ -113,8 +119,12 @@ impl X86Mapper {
     /// Convert a physical address stored in a page-table entry to a virtual
     /// reference via the kernel HHDM.
     fn phys_to_virt(phys: usize) -> *mut PageTable {
-        let offset = HHDM_OFFSET.load(Ordering::Acquire);
-        (offset + phys) as *mut PageTable
+        if PAGING_ACTIVE.load(Ordering::Acquire) {
+            let offset = HHDM_OFFSET.load(Ordering::Acquire);
+            (offset + phys) as *mut PageTable
+        } else {
+            phys as *mut PageTable
+        }
     }
 
     fn next_table(entry: &mut PageTableEntry) -> &'static mut PageTable {
@@ -214,25 +224,35 @@ pub fn mapper() -> &'static Mutex<X86Mapper> {
 // ──────────────────────────────────────────────────────────────────────────────
 
 /// Allocate a zeroed 4 KiB physical frame and return a static mutable
-/// reference to it through the HHDM.
+/// reference to it. Before paging is active, uses identity mapping (phys ==
+/// virt); afterwards uses HHDM.
 fn alloc_page_table() -> Result<&'static mut PageTable, KernelFault> {
     let frame = crate::memory::phys::frame_allocator()?
         .lock()
         .alloc()
         .map_err(PageFault::OutOfFrames)?;
     let phys = frame.addr();
-    let offset = HHDM_OFFSET.load(Ordering::Acquire);
-    let virt = (offset + phys) as *mut PageTable;
+    let virt = if PAGING_ACTIVE.load(Ordering::Acquire) {
+        let offset = HHDM_OFFSET.load(Ordering::Acquire);
+        (offset + phys) as *mut PageTable
+    } else {
+        phys as *mut PageTable
+    };
     unsafe {
         (*virt).zero();
         Ok(&mut *virt)
     }
 }
 
-/// Return the physical address of a HHDM-virtual page-table pointer.
+/// Return the physical address of a page-table pointer. Before paging is
+/// active, uses identity mapping (virt == phys); afterwards subtracts HHDM.
 fn virt_to_phys(virt: *const PageTable) -> usize {
-    let offset = HHDM_OFFSET.load(Ordering::Acquire);
-    virt as usize - offset
+    if PAGING_ACTIVE.load(Ordering::Acquire) {
+        let offset = HHDM_OFFSET.load(Ordering::Acquire);
+        virt as usize - offset
+    } else {
+        virt as usize
+    }
 }
 
 /// Map a single 1 GiB huge page: `virt` → `phys` (PDPT-level PS=1).
@@ -302,10 +322,12 @@ pub fn init_paging(
     kernel_virt_base: usize,
     mem_map: &MemMap,
 ) -> Result<(), KernelFault> {
-    // 1. Record the HHDM offset so alloc_page_table / phys_to_virt work.
+    // 1. Record the HHDM offset. PAGING_ACTIVE remains false so alloc_page_table
+    //    and phys_to_virt use identity mapping (phys == virt), which is valid
+    //    under the bootloader's page tables.
     HHDM_OFFSET.store(hhdm_offset, Ordering::Release);
 
-    // 2. Allocate the top-level PML4 via the HHDM.
+    // 2. Allocate the top-level PML4. Access it via identity mapping.
     let pml4_phys = {
         let frame = crate::memory::phys::frame_allocator()?
             .lock()
@@ -313,9 +335,9 @@ pub fn init_paging(
             .map_err(PageFault::OutOfFrames)?;
         frame.addr()
     };
-    let pml4_virt = (hhdm_offset + pml4_phys) as *mut PageTable;
-    unsafe { (*pml4_virt).zero() };
-    let pml4 = unsafe { &mut *pml4_virt };
+    let pml4_ident = pml4_phys as *mut PageTable;
+    unsafe { (*pml4_ident).zero() };
+    let pml4 = unsafe { &mut *pml4_ident };
 
     // 3. Map all physical memory with 1 GiB huge pages so that every frame is
     //    reachable after we switch CR3.
@@ -366,7 +388,10 @@ pub fn init_paging(
         );
     }
 
-    // 7. Verify: read a byte through the HHDM mapping we just built.
+    // 7. Switch to HHDM. All subsequent frame accesses use HHDM_OFFSET.
+    PAGING_ACTIVE.store(true, Ordering::Release);
+
+    // 8. Verify: read a byte through the HHDM mapping we just built.
     let test_virt = hhdm_offset as *const u8;
     let _test_byte = unsafe { test_virt.read_volatile() };
     log_ok!(
@@ -374,7 +399,8 @@ pub fn init_paging(
         hhdm_offset
     );
 
-    // 8. Register the global mapper.
+    // 9. Register the global mapper using the HHDM virtual address of the PML4.
+    let pml4_virt = (hhdm_offset + pml4_phys) as *mut PageTable;
     init(unsafe { &mut *pml4_virt });
 
     Ok(())
