@@ -51,6 +51,8 @@ pub fn init(info: BootInfo) -> ! {
     init_step("Initializing virtual memory (paging)", Arch::init_memory).unwrap();
     // ── End memory initialisation ─────────────────────────────────────────────
 
+    init_step("Upgrading to APIC (post-paging)", Arch::init_apic_post_paging).unwrap();
+
     println!("\nFinishing boot");
 
     for _ in 0..3 {

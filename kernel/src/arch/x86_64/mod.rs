@@ -56,6 +56,11 @@ impl Architecture for X86_64 {
         Ok(())
     }
 
+    fn init_apic_post_paging() -> Result<()> {
+        interrupts::init_apic_post_paging();
+        Ok(())
+    }
+
     fn set_boot_params(hhdm_offset: usize, kernel_phys_base: usize, kernel_virt_base: usize) {
         use core::sync::atomic::Ordering;
         HHDM_OFFSET.store(hhdm_offset, Ordering::Release);
