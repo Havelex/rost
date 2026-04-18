@@ -48,7 +48,6 @@ impl Architecture for X86_64 {
 
     fn init_interrupts() -> Result<()> {
         interrupts::init()?;
-        init_step("Initializing drivers", drivers::init)?;
         init_step("Enabling interrupts", || {
             Self::Cpu::enable_interrupts();
             Ok(())
@@ -58,6 +57,7 @@ impl Architecture for X86_64 {
 
     fn init_apic_post_paging() -> Result<()> {
         interrupts::init_apic_post_paging();
+        init_step("Initializing drivers", drivers::init)?;
         Ok(())
     }
 

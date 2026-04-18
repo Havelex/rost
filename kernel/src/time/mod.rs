@@ -11,6 +11,16 @@ pub fn get_ticks() -> usize {
     TICKS.load(Ordering::Relaxed)
 }
 
+/// Returns the current timer tick count.
+pub fn timer_ticks() -> usize {
+    TICKS.load(Ordering::Relaxed)
+}
+
+/// Resets the timer tick counter to zero.
+pub fn reset_timer_ticks() {
+    TICKS.store(0, Ordering::Relaxed);
+}
+
 pub fn sleep(ms: usize) {
     let start_ticks = get_ticks();
     let ticks_to_wait = ms / 10;

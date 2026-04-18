@@ -16,12 +16,19 @@ pub fn init() -> Result<()> {
     let low_byte = (divisor & 0xFF) as u8;
     let high_byte = ((divisor >> 8) & 0xFF) as u8;
 
-    // let command: u8 = SELECT_CHANNEL_0 | ACCESS_LOBYTE_HIBYTE | MODE_SQUARE_WAVE;
-    let command = 0x36u8;
+    let command: u8 = SELECT_CHANNEL_0 | ACCESS_LOBYTE_HIBYTE | MODE_SQUARE_WAVE;
+    log_info!(
+        "[pit] programming: base={}Hz target={}Hz divisor={} command={:#04x}",
+        PIT_BASE_FREQUENCY,
+        TARGET_HZ,
+        divisor,
+        command
+    );
     unsafe {
         outb(COMMAND_PORT, command);
         outb(CHANNEL_0_PORT, low_byte);
         outb(CHANNEL_0_PORT, high_byte);
     }
+    log_ok!("[pit] initialized at {}Hz", TARGET_HZ);
     Ok(())
 }
