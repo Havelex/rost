@@ -53,6 +53,16 @@ pub fn init(mem_map: &MemMap) -> Result<(), MemoryFault> {
 
     FRAME_ALLOCATOR.call_once(|| Mutex::new(allocator));
 
+    // Physical frame 0 (address 0x0) may not appear in any Limine memory-map
+    // region, leaving it free in the bitmap even though it must never be
+    // allocated: in Limine's BIOS boot environment the HHDM does not cover
+    // physical address 0, so dereferencing (hhdm_offset + 0) would fault.
+    // Reserve it unconditionally before scanning the rest of the map.
+    {
+        let mut alloc = FRAME_ALLOCATOR.get().unwrap().lock();
+        let _ = alloc.reserve_range(0, 0);
+    }
+
     reserve_non_usable(mem_map)
 }
 
