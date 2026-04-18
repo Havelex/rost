@@ -1,7 +1,7 @@
 use spin::{Mutex, Once};
 
 use crate::memory::{
-    alloc::{FrameAllocator, MemoryFault},
+    alloc::{Frame, FrameAllocator, MemoryFault},
     regions::{MemMap, MemoryRegionKind},
 };
 
@@ -53,7 +53,30 @@ pub fn init(mem_map: &MemMap) -> Result<(), MemoryFault> {
 
     FRAME_ALLOCATOR.call_once(|| Mutex::new(allocator));
 
-    reserve_non_usable(mem_map)
+    reserve_non_usable(mem_map)?;
+
+    // Always reserve the null frame (physical address 0x0).
+    //
+    // On BIOS firmware (QEMU and real hardware) Limine may list the first
+    // page as Usable in its memory map, yet it does NOT include physical 0
+    // in the HHDM because that page holds the real-mode interrupt vector
+    // table and BIOS data area — firmware-reserved ROM territory.
+    // If the allocator returned frame 0, init_paging() would try to zero it
+    // at `hhdm_offset + 0`, which is unmapped → page fault → triple fault.
+    //
+    // Physical 0 is also the canonical "null" physical address and must
+    // never be handed out as a kernel allocation.
+    {
+        let alloc = FRAME_ALLOCATOR.get().unwrap();
+        let mut alloc = alloc.lock();
+        match alloc.reserve(Frame::new(0)) {
+            // Successfully reserved, or already covered by a non-Usable region.
+            Ok(()) | Err(MemoryFault::DoubleAllocation { .. }) => {}
+            Err(e) => return Err(e),
+        }
+    }
+
+    Ok(())
 }
 
 fn reserve_non_usable(mem_map: &MemMap) -> Result<(), MemoryFault> {
