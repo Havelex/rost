@@ -373,7 +373,7 @@ pub fn init_paging(
     let test_virt = hhdm_offset as *const u8;
     let _test_byte = unsafe { test_virt.read_volatile() };
     log_ok!(
-        "  [paging] HHDM read-back OK (phys 0x0 → virt {:#018x})",
+        "  [paging] HHDM read-back OK (phys 0x0 -> virt {:#018x})",
         hhdm_offset
     );
 
