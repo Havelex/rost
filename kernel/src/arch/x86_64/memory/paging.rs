@@ -1,6 +1,6 @@
 use bitflags::bitflags;
-use spin::{Mutex, Once};
 use core::sync::atomic::{AtomicUsize, Ordering};
+use spin::{Mutex, Once};
 
 use crate::{
     memory::{
@@ -244,7 +244,10 @@ fn map_1gib(pml4: &mut PageTable, virt: usize, phys: usize) -> Result<(), Kernel
     }
     let pdpt = unsafe { &mut *X86Mapper::phys_to_virt(pml4e.addr()) };
     let pdpte = &mut pdpt.entries[(virt >> 30) & 0x1ff];
-    pdpte.set(phys, PageFlags::PRESENT | PageFlags::WRITABLE | PageFlags::HUGE);
+    pdpte.set(
+        phys,
+        PageFlags::PRESENT | PageFlags::WRITABLE | PageFlags::HUGE,
+    );
     Ok(())
 }
 
@@ -338,7 +341,10 @@ pub fn init_paging(
         .iter()
         .take(mem_map.count)
         .filter(|r| {
-            matches!(r.kind, crate::memory::regions::MemoryRegionKind::KernelAndModules)
+            matches!(
+                r.kind,
+                crate::memory::regions::MemoryRegionKind::KernelAndModules
+            )
         })
         .map(|r| r.base + r.length)
         .max()
@@ -373,10 +379,9 @@ pub fn init_paging(
     let test_virt = hhdm_offset as *const u8;
     let _test_byte = unsafe { test_virt.read_volatile() };
     log_ok!(
-        "  [paging] HHDM read-back OK (phys 0x0 → virt {:#018x})",
+        "  [paging] HHDM read-back OK (phys 0x0 -> virt {:#018x})",
         hhdm_offset
     );
-
     // 8. Register the global mapper.
     init(unsafe { &mut *pml4_virt });
 
