@@ -39,6 +39,8 @@ impl Architecture for X86_64 {
     type Cpu = X86Cpu;
 
     fn init_early() -> Result<()> {
+        use cpu::X86CpuExt;
+        X86Cpu::enable_sse();
         init_step("Initializing TSS...", tss::init)?;
         init_step("Initializing GDT...", gdt::init)?;
         Ok(())
