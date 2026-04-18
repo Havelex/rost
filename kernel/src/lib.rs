@@ -31,28 +31,25 @@ pub fn init(info: BootInfo) -> ! {
     log_info!("Initializing Kernel...");
     push_indent();
     init_step("Initializing early architecture", Arch::init_early).unwrap();
+    init_step("Initializing interrupts...", Arch::init_interrupts).unwrap();
 
     // ── Memory initialisation ────────────────────────────────────────────────
-    let mem_map: MemMap = info
-        .memory_map
-        .expect("Limine memory map missing")
-        .into();
+    let mem_map: MemMap = info.memory_map.expect("Limine memory map missing").into();
     let hhdm_offset = info.offset.expect("Limine HHDM offset missing");
-    let kernel_phys_base = info.kernel_phys_base.expect("Limine kernel phys base missing");
-    let kernel_virt_base = info.kernel_virt_base.expect("Limine kernel virt base missing");
+    let kernel_phys_base = info
+        .kernel_phys_base
+        .expect("Limine kernel phys base missing");
+    let kernel_virt_base = info
+        .kernel_virt_base
+        .expect("Limine kernel virt base missing");
 
-    init_step("Initializing physical memory", || {
-        memory::init(&mem_map)
-    })
-    .unwrap();
+    init_step("Initializing physical memory", || memory::init(&mem_map)).unwrap();
 
     // Supply arch-specific boot params through the Architecture trait.
     Arch::set_boot_params(hhdm_offset, kernel_phys_base, kernel_virt_base);
 
     init_step("Initializing virtual memory (paging)", Arch::init_memory).unwrap();
     // ── End memory initialisation ─────────────────────────────────────────────
-
-    init_step("Initializing interrupts...", Arch::init_interrupts).unwrap();
 
     println!("\nFinishing boot");
 
@@ -89,4 +86,3 @@ where
         }
     }
 }
-
