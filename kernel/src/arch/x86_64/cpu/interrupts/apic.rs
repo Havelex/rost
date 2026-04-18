@@ -13,8 +13,9 @@ const X2APIC_TPR: u32 = 0x808;
 const X2APIC_EOI: u32 = 0x80B;
 const X2APIC_SIVR: u32 = 0x80F;
 const X2APIC_ESR: u32 = 0x828;
-const X2APIC_LINT0: u32 = 0x82F;
-const X2APIC_LINT1: u32 = 0x830;
+const X2APIC_LVT_ERR: u32 = 0x837;
+const X2APIC_LINT0: u32 = 0x835; // xAPIC offset 0x350 → MSR 0x800 + 0x35
+const X2APIC_LINT1: u32 = 0x836; // xAPIC offset 0x360 → MSR 0x800 + 0x36
 const X2APIC_SIVR_ENABLE: u64 = 1 << 8;
 
 // ── xAPIC physical base and MMIO register offsets ────────────────────────────
@@ -141,9 +142,14 @@ unsafe fn init_x2apic_registers() {
         // Enable the APIC software-enable bit; use 0xFF as the spurious vector.
         write(X2APIC_SIVR, X2APIC_SIVR_ENABLE | 0xFF);
 
-        // Mask local interrupt lines — unused in most single-CPU setups.
+        // Mask local interrupt lines and the LVT error entry.
         write(X2APIC_LINT0, APIC_LVT_MASK64);
         write(X2APIC_LINT1, APIC_LVT_MASK64);
+        write(X2APIC_LVT_ERR, APIC_LVT_MASK64);
+
+        // Clear ESR again after LVT setup to acknowledge any errors.
+        write(X2APIC_ESR, 0);
+        write(X2APIC_ESR, 0);
     }
 }
 

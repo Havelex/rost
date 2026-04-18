@@ -55,8 +55,9 @@ pub fn init(info: BootInfo) -> ! {
 
     println!("\nFinishing boot");
 
-    for _ in 0..3 {
+    for i in 0..3 {
         sleep(1000);
+        log_info!("Timer ticks at T+{}s: {}", i + 1, crate::time::get_ticks());
         print!(".");
     }
 
