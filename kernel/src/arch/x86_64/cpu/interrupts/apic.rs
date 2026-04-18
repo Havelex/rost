@@ -234,6 +234,15 @@ pub fn try_init_apic() {
         // Disable the 8259 PIC — APIC takes over all IRQ delivery.
         crate::arch::x86_64::cpu::interrupts::pic::disable();
 
+        // Update the active controller BEFORE programming the IOAPIC.
+        // In QEMU (and on real hardware) a pending PIT pulse is injected into
+        // the LAPIC the instant the unmasked IOAPIC redirection entry is
+        // written.  If ACTIVE_CONTROLLER still says CTRL_PIC at that point,
+        // send_eoi() sends the EOI to the 8259 instead of the LAPIC, leaving
+        // LAPIC ISR[32] set permanently — no further vector-32 interrupts
+        // can ever be delivered.
+        ACTIVE_CONTROLLER.store(CTRL_X2APIC, Ordering::Release);
+
         // Try to bring up the IOAPIC for PIT-timer routing.
         match crate::arch::x86_64::memory::paging::map_mmio_region(
             IOAPIC_PHYS_BASE,
@@ -250,7 +259,6 @@ pub fn try_init_apic() {
             }
         }
 
-        ACTIVE_CONTROLLER.store(CTRL_X2APIC, Ordering::Release);
         log_ok!("[apic] x2APIC initialized");
         return;
     }
@@ -271,6 +279,10 @@ pub fn try_init_apic() {
                 // Disable the 8259 PIC — APIC takes over all IRQ delivery.
                 crate::arch::x86_64::cpu::interrupts::pic::disable();
 
+                // Update the active controller BEFORE programming the IOAPIC
+                // for the same reason as in the x2APIC path above.
+                ACTIVE_CONTROLLER.store(CTRL_XAPIC, Ordering::Release);
+
                 // Try to bring up the IOAPIC for PIT-timer routing.
                 match crate::arch::x86_64::memory::paging::map_mmio_region(
                     IOAPIC_PHYS_BASE,
@@ -288,7 +300,6 @@ pub fn try_init_apic() {
                     }
                 }
 
-                ACTIVE_CONTROLLER.store(CTRL_XAPIC, Ordering::Release);
                 log_ok!("[apic] xAPIC initialized");
             }
             Err(_) => {
