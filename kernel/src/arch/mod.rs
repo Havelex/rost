@@ -23,6 +23,14 @@ pub trait Architecture {
     // interrupts
     fn init_interrupts() -> Result<()>;
 
+    /// Attempt to upgrade from PIC to APIC after virtual memory is active.
+    ///
+    /// The default implementation is a no-op; architectures that support APIC
+    /// should override this to try x2APIC / xAPIC initialization.
+    fn init_apic_post_paging() -> Result<()> {
+        Ok(())
+    }
+
     // memory
     /// Store architecture-specific boot parameters (HHDM offset, kernel physical
     /// and virtual base addresses) that `init_memory` will read later.

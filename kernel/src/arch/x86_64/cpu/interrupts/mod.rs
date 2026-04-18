@@ -147,6 +147,14 @@ pub fn init() -> Result<()> {
     Ok(())
 }
 
+/// Attempt to upgrade from the PIC to an APIC variant after paging is active.
+///
+/// Tries x2APIC → xAPIC in order, falling back silently to the PIC already
+/// configured in `init()`.  Safe to call after `init_memory()`.
+pub fn init_apic_post_paging() {
+    apic::try_init_apic();
+}
+
 pub fn send_eoi(irq: u8) {
-    pic::send_eoi(irq);
+    apic::send_eoi(irq);
 }
