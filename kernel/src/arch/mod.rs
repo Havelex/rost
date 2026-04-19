@@ -36,6 +36,7 @@ pub trait Architecture {
     /// and virtual base addresses) that `init_memory` will read later.
     fn set_boot_params(hhdm_offset: usize, kernel_phys_base: usize, kernel_virt_base: usize);
     fn init_memory() -> Result<()>;
+    fn init_drivers() -> Result<()>;
 
     // getter
     fn mapper() -> &'static Mutex<Self::Mapper>;

@@ -4,10 +4,7 @@ use crate::{
     arch::{
         Architecture, Cpu,
         x86_64::{
-            cpu::{
-                X86Cpu,
-                interrupts,
-            },
+            cpu::{X86Cpu, interrupts},
             memory::paging::{X86Mapper, mapper},
         },
     },
@@ -27,12 +24,9 @@ pub struct X86_64;
 
 /// Boot parameters stored globally so that `init_memory` can read them without
 /// changing the `Architecture` trait signature.
-static HHDM_OFFSET: core::sync::atomic::AtomicUsize =
-    core::sync::atomic::AtomicUsize::new(0);
-static KERNEL_PHYS_BASE: core::sync::atomic::AtomicUsize =
-    core::sync::atomic::AtomicUsize::new(0);
-static KERNEL_VIRT_BASE: core::sync::atomic::AtomicUsize =
-    core::sync::atomic::AtomicUsize::new(0);
+static HHDM_OFFSET: core::sync::atomic::AtomicUsize = core::sync::atomic::AtomicUsize::new(0);
+static KERNEL_PHYS_BASE: core::sync::atomic::AtomicUsize = core::sync::atomic::AtomicUsize::new(0);
+static KERNEL_VIRT_BASE: core::sync::atomic::AtomicUsize = core::sync::atomic::AtomicUsize::new(0);
 
 impl Architecture for X86_64 {
     type Mapper = X86Mapper;
@@ -57,7 +51,6 @@ impl Architecture for X86_64 {
 
     fn init_apic_post_paging() -> Result<()> {
         interrupts::init_apic_post_paging();
-        init_step("Initializing drivers", drivers::init)?;
         Ok(())
     }
 
@@ -69,8 +62,8 @@ impl Architecture for X86_64 {
     }
 
     fn init_memory() -> Result<()> {
-        use core::sync::atomic::Ordering;
         use crate::error::KernelError;
+        use core::sync::atomic::Ordering;
 
         let hhdm_offset = HHDM_OFFSET.load(Ordering::Acquire);
         let kernel_phys_base = KERNEL_PHYS_BASE.load(Ordering::Acquire);
@@ -80,6 +73,11 @@ impl Architecture for X86_64 {
 
         memory::paging::init_paging(hhdm_offset, kernel_phys_base, kernel_virt_base, mem_map)
             .map_err(|_| KernelError::OutOfMemory)
+    }
+
+    fn init_drivers() -> Result<()> {
+        init_step("Initializing drivers", drivers::init)?;
+        Ok(())
     }
 
     fn mapper() -> &'static Mutex<Self::Mapper> {
