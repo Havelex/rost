@@ -89,16 +89,16 @@ pub fn init(info: BootInfo) -> ! {
     log_info!("Enabling interrupts after driver initialization");
     Arch::enable_interrupts();
 
-    println!("\nFinishing boot");
+    print!("\nFinishing boot");
 
-    for i in 0..3 {
+    for _ in 0..3 {
         sleep(1000);
-        log_info!("Timer ticks at T+{}s: {}", i + 1, crate::time::get_ticks());
         print!(".");
     }
 
     println!();
     println!("Done!");
+    println!("Press any key to continue...");
 
     loop {
         <Arch as Architecture>::Cpu::halt()
