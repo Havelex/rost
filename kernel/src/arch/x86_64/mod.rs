@@ -87,4 +87,8 @@ impl Architecture for X86_64 {
     fn send_eoi(irq: u8) {
         interrupts::send_eoi(irq);
     }
+
+    fn active_controller() -> &'static str {
+        interrupts::active_controller()
+    }
 }

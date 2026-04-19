@@ -153,8 +153,16 @@ pub fn init() -> Result<()> {
 /// configured in `init()`.  Safe to call after `init_memory()`.
 pub fn init_apic_post_paging() {
     apic::try_init_apic();
+    log_info!(
+        "[interrupts] active controller after APIC init: {}",
+        apic::active_controller()
+    );
 }
 
 pub fn send_eoi(irq: u8) {
     apic::send_eoi(irq);
+}
+
+pub fn active_controller() -> &'static str {
+    apic::active_controller()
 }

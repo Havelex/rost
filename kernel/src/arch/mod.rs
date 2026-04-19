@@ -42,4 +42,12 @@ pub trait Architecture {
     fn mapper() -> &'static Mutex<Self::Mapper>;
 
     fn send_eoi(irq: u8);
+
+    /// Return a short string identifying the currently active interrupt controller.
+    ///
+    /// Used for diagnostic output only.  The default implementation returns
+    /// `"unknown"` so architectures that don't need it can omit the override.
+    fn active_controller() -> &'static str {
+        "unknown"
+    }
 }

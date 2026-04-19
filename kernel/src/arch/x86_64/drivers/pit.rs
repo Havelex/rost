@@ -24,6 +24,10 @@ pub fn init() -> Result<()> {
         divisor,
         command
     );
+    log_info!(
+        "[pit] writing ports: CH0={:#04x} low={:#04x} high={:#04x}",
+        CHANNEL_0_PORT, low_byte, high_byte
+    );
     unsafe {
         outb(COMMAND_PORT, command);
         outb(CHANNEL_0_PORT, low_byte);
