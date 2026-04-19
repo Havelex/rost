@@ -17,6 +17,7 @@ const ICW4_8086: u8 = 0x01;
 
 const CASCADE_IRQ: u8 = 2;
 pub const IRQ_PIT_TIMER: u8 = 0;
+pub const IRQ_KEYBOARD: u8 = 1;
 pub const IRQ_CASCADE: u8 = 2;
 
 const PIC_READ_IRR: u8 = 0x0a;

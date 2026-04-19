@@ -14,6 +14,8 @@ use crate::{
 pub(crate) mod console;
 #[macro_use]
 pub(crate) mod logger;
+#[macro_use]
+pub(crate) mod keyboard;
 pub(crate) mod arch;
 pub(crate) mod boot;
 pub(crate) mod cpu;
@@ -95,10 +97,68 @@ pub fn init(info: BootInfo) -> ! {
         sleep(1000);
         print!(".");
     }
-
-    println!();
+    sleep(1000);
     println!("Done!");
-    println!("Press any key to continue...");
+    sleep(1000);
+    cls!();
+
+    //                    # ###       #######
+    //                  /  /###     /       ###
+    //                 /  /  ###   /         ##   #
+    //                /  ##   ###  ##        #   ##
+    //               /  ###    ###  ###          ##
+    // ###  /###    ##   ##     ## ## ###      ########
+    //  ###/ #### / ##   ##     ##  ### ###   ########
+    //   ##   ###/  ##   ##     ##    ### ###    ##
+    //   ##         ##   ##     ##      ### /##  ##
+    //   ##         ##   ##     ##        #/ /## ##
+    //   ##          ##  ##     ##         #/ ## ##
+    //   ##           ## #      /           # /  ##
+    //   ##            ###     /  /##        /   ##
+    //   ###            ######/  /  ########/    ##
+    //    ###             ###   /     #####       ##
+    //                          |
+    //                           \)
+
+    print!("\x1b[91m");
+    println!("              .                 ...");
+    println!("          :*@@#@@+.          +@@##@@*.");
+    println!("         *#:     ;@;       .@+.     ;@+");
+    println!("        +*         @:      @.         #:");
+    println!("        @          :*     :*          :*");
+    println!("        @          ;*     :*          ;*");
+    println!("        +#        .@.      @;        .@.");
+    println!("         +@+.  .:*@:\x1b[90m\\\x1b[91m      ##:    .+@:\x1b[90m\\");
+    println!(
+        "        \x1b[90m/\x1b[91m .+#@@@*;  \x1b[90m\\       /\x1b[91m:*@@@@#;\x1b[90m\\  \\"
+    );
+    println!("       \x1b[90m/  /          \\     /          \\  \\");
+    println!("       \x1b[90m/ /           \\     /           \\  \\\x1b[98m");
+    println!("   ...\x1b[90m/  /            \\   /             \\  \\\x1b[98m");
+    println!(" ;@@@@@*/            .*@@@*.             \x1b[90m\\\x1b[98m;#@@#+");
+    println!(";@@@@@@@*           :@@@@@@@.            *@@@@@@#");
+    println!("+@@@@@@@@           #@@@@@@@+            @@@@@@@@.");
+    println!(":@@@@@@@+           :@@@@@@@.            *@@@@@@#");
+    println!(" .*@@@#;             .*@@@*.              ;#@@#+");
+    print!("\x1b[0m");
+
+    loop {
+        let key = wait_for_key!();
+
+        // Scancode 0x01 = Escape — stop logging as a demonstration.
+        if key.keycode == 0x01 {
+            println!("[keyboard] Escape pressed, halting.");
+            break;
+        }
+
+        match key.ascii {
+            Some('\n') => println!(""),
+            Some('\t') => println!("\t"),
+            Some(' ') => println!(" "),
+            Some(c) => println!("{}", c),
+            None => println!("{:#04x}", key.scancode),
+        }
+    }
 
     loop {
         <Arch as Architecture>::Cpu::halt()

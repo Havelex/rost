@@ -14,3 +14,10 @@ macro_rules! println {
         $crate::print!("{}\n", format_args!($($arg)*));
     }};
 }
+
+#[macro_export]
+macro_rules! cls {
+    () => {
+        $crate::console::writer::console().lock().clear()
+    };
+}
