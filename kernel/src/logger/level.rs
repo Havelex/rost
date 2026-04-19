@@ -3,6 +3,7 @@ pub enum LogLevel {
     Info,
     Warn,
     Error,
+    Debug,
 }
 
 impl LogLevel {
@@ -12,6 +13,7 @@ impl LogLevel {
             LogLevel::Info => " INFO ",
             LogLevel::Warn => " WARN ",
             LogLevel::Error => " ERROR",
+            LogLevel::Debug => " DEBUG",
         }
     }
 
@@ -22,6 +24,7 @@ impl LogLevel {
             LogLevel::Info => "\x1b[96m",  // Cyan
             LogLevel::Warn => "\x1b[93m",  // Yellow
             LogLevel::Error => "\x1b[91m", // Red
+            LogLevel::Debug => "\x1b[98m", // Orange
         }
     }
 }

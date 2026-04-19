@@ -13,17 +13,13 @@ pub fn handle_hardware_interrupt(irq: u8) {
     match irq {
         0 => {
             increment_ticks();
+            println!("[timer] IRQ0 received");
         }
         1 => {
-            #[cfg(target_arch = "x86_64")]
-            {
-                let scancode =
-                    unsafe { crate::arch::x86_64::asm::inb(KEYBOARD_DATA_PORT) };
-                log_info!("[keyboard] scancode: {:#04x}", scancode);
-            }
+            println!("[keyboard] IRQ1 received");
         }
         _ => {
-            println!("Received hardware IRQ: {}", irq);
+            println!("[interrupt] unknown IRQ: {}", irq);
         }
     }
 

@@ -43,6 +43,9 @@ pub fn init(info: BootInfo) -> ! {
     )
     .unwrap();
 
+    log_info!("Enabling interrupts");
+    Arch::enable_interrupts();
+
     // ── Memory initialisation ────────────────────────────────────────────────
     let mem_map: MemMap = info.memory_map.expect("Limine memory map missing").into();
     let hhdm_offset = info.offset.expect("Limine HHDM offset missing");
@@ -71,13 +74,20 @@ pub fn init(info: BootInfo) -> ! {
     .unwrap();
     // ── End memory initialisation ─────────────────────────────────────────────
 
+    // log_info!("Disabling interrupts to upgrade to APIC");
+    // Arch::enable_interrupts();
     init_step("Upgrading to APIC", "Upgraded to APIC", Arch::init_post_mem).unwrap();
+
+    log_info!("Disabling interrupts during driver initialization");
+    Arch::disable_interrupts();
     init_step(
         "Initializing drivers",
         "Drivers initialized",
         Arch::init_drivers,
     )
     .unwrap();
+    log_info!("Enabling interrupts after driver initialization");
+    Arch::enable_interrupts();
 
     println!("\nFinishing boot");
 

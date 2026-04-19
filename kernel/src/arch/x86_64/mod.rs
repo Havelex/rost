@@ -42,10 +42,6 @@ impl Architecture for X86_64 {
 
     fn init_interrupts() -> Result<()> {
         interrupts::init()?;
-        init_step("Enabling interrupts", "Interrupts enabled", || {
-            Self::Cpu::enable_interrupts();
-            Ok(())
-        })?;
         Ok(())
     }
 
@@ -86,6 +82,14 @@ impl Architecture for X86_64 {
 
     fn mapper() -> &'static Mutex<Self::Mapper> {
         mapper()
+    }
+
+    fn enable_interrupts() {
+        X86Cpu::enable_interrupts();
+    }
+
+    fn disable_interrupts() {
+        X86Cpu::disable_interrupts();
     }
 
     fn send_eoi(irq: u8) {

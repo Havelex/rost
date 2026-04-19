@@ -17,3 +17,8 @@ macro_rules! log_warn {
 macro_rules! log_err {
     ($($arg:tt)*) => ($crate::logger::log($crate::logger::LogLevel::Error, format_args!($($arg)*)));
 }
+
+#[macro_export]
+macro_rules! log_dbug {
+    ($($arg:tt)*) => ($crate::logger::log($crate::logger::LogLevel::Debug, format_args!($($arg)*)));
+}

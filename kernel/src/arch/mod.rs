@@ -34,5 +34,7 @@ pub trait Architecture {
     // getter
     fn mapper() -> &'static Mutex<Self::Mapper>;
 
+    fn enable_interrupts();
+    fn disable_interrupts();
     fn send_eoi(irq: u8);
 }

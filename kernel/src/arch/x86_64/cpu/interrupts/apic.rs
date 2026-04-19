@@ -162,20 +162,27 @@ unsafe fn init_x2apic_registers() {
 /// global-enable bit in `IA32_APIC_BASE_MSR` must already be set.
 unsafe fn init_xapic_registers(base: usize) {
     unsafe {
-        // Allow all interrupt priorities.
         xapic_write(base, XAPIC_TPR_OFF, 0);
-
-        // Clear the error status register (must write twice to reset).
         xapic_write(base, XAPIC_ESR_OFF, 0);
         xapic_write(base, XAPIC_ESR_OFF, 0);
 
-        // Enable the APIC software-enable bit; use 0xFF as the spurious vector.
+        // Enable APIC with spurious vector 0xFF
         xapic_write(base, XAPIC_SIVR_OFF, XAPIC_SIVR_ENABLE | 0xFF);
 
-        // Mask local interrupt lines and the LVT error entry.
+        // Read back and verify
+        let sivr = xapic_read(base, XAPIC_SIVR_OFF);
+        log_dbug!("[xapic] SIVR after init: {:#010x}", sivr);
+
         xapic_write(base, XAPIC_LINT0_OFF, APIC_LVT_MASK32);
         xapic_write(base, XAPIC_LINT1_OFF, APIC_LVT_MASK32);
         xapic_write(base, XAPIC_LVT_ERR_OFF, APIC_LVT_MASK32);
+
+        xapic_write(base, XAPIC_ESR_OFF, 0);
+        xapic_write(base, XAPIC_ESR_OFF, 0);
+
+        // Check if there are any errors logged in ESR
+        let esr = xapic_read(base, XAPIC_ESR_OFF);
+        log_dbug!("[xapic] ESR after init: {:#010x}", esr);
     }
 }
 
@@ -191,15 +198,16 @@ unsafe fn ioapic_set_redir(base: usize, irq: u8, vector: u8, dest: u8) {
     let reg_lo = IOAPIC_REDTBL_BASE + (irq as u32) * 2;
     let reg_hi = reg_lo + 1;
 
-    // High half: destination LAPIC ID in bits [63:56] of the entry
-    // (bits [31:24] of the high DWORD).
     let high: u32 = (dest as u32) << 24;
-    // Low half: vector, fixed delivery, physical destination, active-high,
-    // edge-triggered, not masked.
-    let low: u32 = vector as u32;
+
+    let low: u32 = (vector as u32)
+        | (0 << 8)   // Fixed delivery
+        | (0 << 11)  // Physical destination
+        | (0 << 13)  // Active high
+        | (0 << 15); // Edge triggered
+    // Bit 16 intentionally NOT set (0 = unmasked/enabled)
 
     unsafe {
-        // Write high half first, then low half (which unmasks the entry).
         ioapic_write(base, reg_hi, high);
         ioapic_write(base, reg_lo, low);
     }
@@ -212,7 +220,7 @@ unsafe fn ioapic_set_redir(base: usize, irq: u8, vector: u8, dest: u8) {
 /// `base` must be the valid virtual address of the IOAPIC MMIO region.
 unsafe fn init_ioapic(base: usize, lapic_id: u8) {
     // IRQ 0 → vector 32 (0x20), delivered to the LAPIC identified by lapic_id.
-    unsafe { ioapic_set_redir(base, 0, 0x20, lapic_id) }
+    unsafe { ioapic_set_redir(base, 2, 0x20, lapic_id) }
     // IRQ 1 → vector 33 (0x21), keyboard interrupt.
     unsafe { ioapic_set_redir(base, 1, 0x21, lapic_id) }
 }
@@ -247,10 +255,7 @@ pub fn try_init_apic() {
         ACTIVE_CONTROLLER.store(CTRL_X2APIC, Ordering::Release);
 
         // Try to bring up the IOAPIC for PIT-timer routing.
-        match crate::arch::x86_64::memory::paging::map_mmio_region(
-            IOAPIC_PHYS_BASE,
-            IOAPIC_SIZE,
-        ) {
+        match crate::arch::x86_64::memory::paging::map_mmio_region(IOAPIC_PHYS_BASE, IOAPIC_SIZE) {
             Ok(ioapic_virt) => {
                 IOAPIC_BASE.store(ioapic_virt, Ordering::Release);
                 // Read LAPIC ID from the x2APIC ID MSR (low 8 bits).
