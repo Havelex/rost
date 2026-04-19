@@ -209,14 +209,17 @@ unsafe fn ioapic_set_redir(base: usize, irq: u8, vector: u8, dest: u8) {
         // Write high half first, then low half (which unmasks the entry).
         ioapic_write(base, reg_hi, high);
         ioapic_write(base, reg_lo, low);
-
-        let rb_lo = ioapic_read(base, reg_lo);
-        let rb_hi = ioapic_read(base, reg_hi);
-        log_debug!(
-            "[apic] ioapic redir readback: lo={:#010x} hi={:#010x}",
-            rb_lo, rb_hi
-        );
     }
+
+    // Log the readback outside the unsafe block.  These calls are safe
+    // here because ioapic_set_redir runs only during single-threaded
+    // initialization, so there is no risk of a console Mutex deadlock.
+    let rb_lo = unsafe { ioapic_read(base, reg_lo) };
+    let rb_hi = unsafe { ioapic_read(base, reg_hi) };
+    log_debug!(
+        "[apic] ioapic redir readback: lo={:#010x} hi={:#010x}",
+        rb_lo, rb_hi
+    );
 }
 
 /// Configure the IOAPIC to route IRQ 0 (PIT timer) to `lapic_id` as vector 32.
@@ -307,9 +310,11 @@ pub fn try_init_apic() {
                 let phys_base = base & IA32_APIC_BASE_ADDR_MASK;
                 unsafe {
                     write(IA32_APIC_BASE_MSR, phys_base);              // disable APIC
-                    // A serializing barrier between the two WRMSR calls
-                    // guarantees the "disabled" state is observed before
-                    // the processor transitions to xAPIC mode.
+                    // WRMSR to IA32_APIC_BASE is serializing per the Intel SDM,
+                    // so the disabled state is guaranteed to be observed before
+                    // the second write.  The mfence provides an explicit memory
+                    // ordering barrier as an additional safeguard to prevent any
+                    // store reordering across the two MSR state transitions.
                     core::arch::asm!("mfence", options(nostack, preserves_flags, nomem));
                     write(IA32_APIC_BASE_MSR, phys_base | IA32_APIC_BASE_MSR_ENABLE); // xAPIC
                     init_xapic_registers(virt);
