@@ -37,4 +37,11 @@ pub trait Architecture {
     fn enable_interrupts();
     fn disable_interrupts();
     fn send_eoi(irq: u8);
+
+    /// Read a single byte from an architecture I/O port.
+    ///
+    /// # Safety
+    /// The caller must ensure that `port` is a valid I/O port and that reading
+    /// from it is safe in the current context.
+    unsafe fn read_port_u8(port: u16) -> u8;
 }

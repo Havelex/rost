@@ -14,6 +14,8 @@ use crate::{
 pub(crate) mod console;
 #[macro_use]
 pub(crate) mod logger;
+#[macro_use]
+pub(crate) mod keyboard;
 pub(crate) mod arch;
 pub(crate) mod boot;
 pub(crate) mod cpu;
@@ -98,7 +100,25 @@ pub fn init(info: BootInfo) -> ! {
 
     println!();
     println!("Done!");
-    println!("Press any key to continue...");
+    println!("Keyboard input active -- press keys to log them (Esc to stop):");
+
+    loop {
+        let key = wait_for_key!();
+
+        // Scancode 0x01 = Escape — stop logging as a demonstration.
+        if key.keycode == 0x01 {
+            println!("[keyboard] Escape pressed, halting.");
+            break;
+        }
+
+        match key.ascii {
+            Some('\n') => println!("[keyboard] Enter"),
+            Some('\t') => println!("[keyboard] Tab"),
+            Some(' ')  => println!("[keyboard] Space"),
+            Some(c)    => println!("[keyboard] '{}' (scancode={:#04x})", c, key.scancode),
+            None       => println!("[keyboard] scancode={:#04x}", key.scancode),
+        }
+    }
 
     loop {
         <Arch as Architecture>::Cpu::halt()
