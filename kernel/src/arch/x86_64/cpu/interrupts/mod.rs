@@ -145,7 +145,9 @@ pub fn init() -> Result<()> {
 
     init_step("Initializing PIC", "PIC initialized", || {
         pic::init()?;
-        pic::clear_mask(pic::IRQ_PIT_TIMER); // IRQ0: PIT timer
+        // IRQ0 (PIT timer) is intentionally left masked here.  It will be
+        // unmasked by pit::init() once the PIT counter has been fully
+        // programmed, preventing spurious timer interrupts during early boot.
         pic::clear_mask(pic::IRQ_CASCADE); // IRQ2: cascade (required for slave PIC IRQs)
         Ok(())
     })?;
