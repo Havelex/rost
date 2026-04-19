@@ -8,6 +8,6 @@ pub fn init() -> Result<()> {
         "[drivers] active interrupt controller: {}",
         crate::arch::x86_64::cpu::interrupts::apic::active_controller()
     );
-    init_step("Initializing PIT...", pit::init)?;
+    init_step("Initializing PIT", "PIT initialized", pit::init)?;
     Ok(())
 }

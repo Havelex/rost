@@ -131,17 +131,22 @@ fn dump_registers(ctx: &InterruptContext) {
 }
 
 pub fn init() -> Result<()> {
-    init_step("Initializing IDT...", idt::init)?;
-    log_info!("Testing breakpoint exception");
-    unsafe {
-        core::arch::asm!("int3");
-    }
-    log_ok!("Successfully returned from breakpoint.");
+    init_step("Initializing IDT", "IDT initialized", idt::init)?;
+    init_step(
+        "Testing breakpoint exception",
+        "Successfully returned from breakpoint",
+        || {
+            unsafe {
+                core::arch::asm!("int3");
+            };
+            Ok(())
+        },
+    );
 
-    init_step("Initializing PIC...", || {
+    init_step("Initializing PIC", "PIC initialized", || {
         pic::init()?;
         pic::clear_mask(pic::IRQ_PIT_TIMER); // IRQ0: PIT timer
-        pic::clear_mask(pic::IRQ_CASCADE);   // IRQ2: cascade (required for slave PIC IRQs)
+        pic::clear_mask(pic::IRQ_CASCADE); // IRQ2: cascade (required for slave PIC IRQs)
         Ok(())
     })?;
     Ok(())

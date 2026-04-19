@@ -35,21 +35,25 @@ impl Architecture for X86_64 {
     fn init_early() -> Result<()> {
         use cpu::X86CpuExt;
         X86Cpu::enable_sse();
-        init_step("Initializing TSS...", tss::init)?;
-        init_step("Initializing GDT...", gdt::init)?;
+        init_step("Initializing TSS", "TSS initialized", tss::init)?;
+        init_step("Initializing GDT", "GDT initialized", gdt::init)?;
         Ok(())
     }
 
     fn init_interrupts() -> Result<()> {
         interrupts::init()?;
-        init_step("Enabling interrupts", || {
+        init_step("Enabling interrupts", "Interrupts enabled", || {
             Self::Cpu::enable_interrupts();
             Ok(())
         })?;
         Ok(())
     }
 
-    fn init_apic_post_paging() -> Result<()> {
+    /// Attempt to upgrade from PIC to APIC after virtual memory is active.
+    ///
+    /// The default implementation is a no-op; architectures that support APIC
+    /// should override this to try x2APIC / xAPIC initialization.
+    fn init_post_mem() -> Result<()> {
         interrupts::init_apic_post_paging();
         Ok(())
     }
@@ -76,7 +80,7 @@ impl Architecture for X86_64 {
     }
 
     fn init_drivers() -> Result<()> {
-        init_step("Initializing drivers", drivers::init)?;
+        init_step("Initializing drivers", "Drivers initialized", drivers::init)?;
         Ok(())
     }
 

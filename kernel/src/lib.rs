@@ -30,8 +30,18 @@ pub fn init(info: BootInfo) -> ! {
     console::writer::init(fb_info.into());
     log_info!("Initializing Kernel...");
     push_indent();
-    init_step("Initializing early architecture", Arch::init_early).unwrap();
-    init_step("Initializing interrupts...", Arch::init_interrupts).unwrap();
+    init_step(
+        "Initializing early architecture",
+        "Early architecture initialized",
+        Arch::init_early,
+    )
+    .unwrap();
+    init_step(
+        "Initializing interrupts",
+        "Interrupts initialized",
+        Arch::init_interrupts,
+    )
+    .unwrap();
 
     // ── Memory initialisation ────────────────────────────────────────────────
     let mem_map: MemMap = info.memory_map.expect("Limine memory map missing").into();
@@ -43,20 +53,31 @@ pub fn init(info: BootInfo) -> ! {
         .kernel_virt_base
         .expect("Limine kernel virt base missing");
 
-    init_step("Initializing physical memory", || memory::init(&mem_map)).unwrap();
+    init_step(
+        "Initializing physical memory",
+        "Physical memory initialized",
+        || memory::init(&mem_map),
+    )
+    .unwrap();
 
     // Supply arch-specific boot params through the Architecture trait.
     Arch::set_boot_params(hhdm_offset, kernel_phys_base, kernel_virt_base);
 
-    init_step("Initializing virtual memory (paging)", Arch::init_memory).unwrap();
-    // ── End memory initialisation ─────────────────────────────────────────────
-
     init_step(
-        "Upgrading to APIC (post-paging)",
-        Arch::init_apic_post_paging,
+        "Initializing virtual memory",
+        "Virtual memory initialized",
+        Arch::init_memory,
     )
     .unwrap();
-    init_step("Initializing drivers...", Arch::init_drivers).unwrap();
+    // ── End memory initialisation ─────────────────────────────────────────────
+
+    init_step("Upgrading to APIC", "Upgraded to APIC", Arch::init_post_mem).unwrap();
+    init_step(
+        "Initializing drivers",
+        "Drivers initialized",
+        Arch::init_drivers,
+    )
+    .unwrap();
 
     println!("\nFinishing boot");
 
@@ -74,7 +95,7 @@ pub fn init(info: BootInfo) -> ! {
     }
 }
 
-pub fn init_step<T, F>(name: &'static str, f: F) -> Result<T>
+pub fn init_step<T, F>(name: &'static str, succ: &'static str, f: F) -> Result<T>
 where
     F: FnOnce() -> Result<T>,
 {
@@ -84,7 +105,7 @@ where
     match f() {
         Ok(val) => {
             pop_indent();
-            log_ok!("{}", name);
+            log_ok!("{}.", succ);
             Ok(val)
         }
         Err(e) => {
