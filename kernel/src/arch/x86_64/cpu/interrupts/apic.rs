@@ -43,7 +43,9 @@ const IOAPIC_REDTBL_BASE: u32 = 0x10;
 const APIC_LVT_MASK32: u32 = 1 << 16;
 const APIC_LVT_MASK64: u64 = 1 << 16;
 
-// ── Active-controller discriminant ───────────────────────────────────────────
+/// Mask for extracting the physical base address from IA32_APIC_BASE_MSR
+/// (bits [47:12], i.e., the 4 KiB-aligned physical address of the LAPIC).
+const IA32_APIC_BASE_ADDR_MASK: u64 = 0xFFFF_FFFF_FFFF_F000u64;
 const CTRL_PIC: u8 = 0;
 const CTRL_X2APIC: u8 = 1;
 const CTRL_XAPIC: u8 = 2;
@@ -302,10 +304,14 @@ pub fn try_init_apic() {
                 // left the APIC in x2APIC mode — without this step, MMIO
                 // writes to SIVR/TPR are silently discarded and the LAPIC
                 // never accepts external interrupts.
-                let phys_base = base & 0xFFFF_FFFF_FFFF_F000u64;
+                let phys_base = base & IA32_APIC_BASE_ADDR_MASK;
                 unsafe {
-                    write(IA32_APIC_BASE_MSR, phys_base);                               // disabled
-                    write(IA32_APIC_BASE_MSR, phys_base | IA32_APIC_BASE_MSR_ENABLE);  // xAPIC
+                    write(IA32_APIC_BASE_MSR, phys_base);              // disable APIC
+                    // A serializing barrier between the two WRMSR calls
+                    // guarantees the "disabled" state is observed before
+                    // the processor transitions to xAPIC mode.
+                    core::arch::asm!("mfence", options(nostack, preserves_flags, nomem));
+                    write(IA32_APIC_BASE_MSR, phys_base | IA32_APIC_BASE_MSR_ENABLE); // xAPIC
                     init_xapic_registers(virt);
                 }
 
