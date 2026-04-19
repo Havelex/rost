@@ -198,10 +198,22 @@ unsafe fn ioapic_set_redir(base: usize, irq: u8, vector: u8, dest: u8) {
     // edge-triggered, not masked.
     let low: u32 = vector as u32;
 
+    log_debug!(
+        "[apic] ioapic_set_redir: irq={} vector={:#04x} dest_lapic={} reg_lo={:#x} reg_hi={:#x}",
+        irq, vector, dest, reg_lo, reg_hi
+    );
+
     unsafe {
         // Write high half first, then low half (which unmasks the entry).
         ioapic_write(base, reg_hi, high);
         ioapic_write(base, reg_lo, low);
+
+        let rb_lo = ioapic_read(base, reg_lo);
+        let rb_hi = ioapic_read(base, reg_hi);
+        log_debug!(
+            "[apic] ioapic redir readback: lo={:#010x} hi={:#010x}",
+            rb_lo, rb_hi
+        );
     }
 }
 
@@ -210,6 +222,7 @@ unsafe fn ioapic_set_redir(base: usize, irq: u8, vector: u8, dest: u8) {
 /// # Safety
 /// `base` must be the valid virtual address of the IOAPIC MMIO region.
 unsafe fn init_ioapic(base: usize, lapic_id: u8) {
+    log_info!("[apic] init_ioapic: base={:#018x} lapic_id={}", base, lapic_id);
     // IRQ 0 → vector 32 (0x20), delivered to the LAPIC identified by lapic_id.
     unsafe { ioapic_set_redir(base, 0, 0x20, lapic_id) }
 }
@@ -244,14 +257,17 @@ pub fn try_init_apic() {
         ACTIVE_CONTROLLER.store(CTRL_X2APIC, Ordering::Release);
 
         // Try to bring up the IOAPIC for PIT-timer routing.
+        log_info!("[apic] mapping IOAPIC...");
         match crate::arch::x86_64::memory::paging::map_mmio_region(
             IOAPIC_PHYS_BASE,
             IOAPIC_SIZE,
         ) {
             Ok(ioapic_virt) => {
+                log_info!("[apic] IOAPIC mapped at virt={:#018x}", ioapic_virt);
                 IOAPIC_BASE.store(ioapic_virt, Ordering::Release);
                 // Read LAPIC ID from the x2APIC ID MSR (low 8 bits).
                 let lapic_id = (unsafe { read(X2APIC_ID) } & X2APIC_ID_MASK) as u8;
+                log_info!("[apic] x2APIC LAPIC ID: {}", lapic_id);
                 unsafe { init_ioapic(ioapic_virt, lapic_id) };
             }
             Err(_) => {
@@ -260,6 +276,7 @@ pub fn try_init_apic() {
         }
 
         log_ok!("[apic] x2APIC initialized");
+        log_info!("[apic] active controller: {}", active_controller());
         return;
     }
 
@@ -284,15 +301,18 @@ pub fn try_init_apic() {
                 ACTIVE_CONTROLLER.store(CTRL_XAPIC, Ordering::Release);
 
                 // Try to bring up the IOAPIC for PIT-timer routing.
+                log_info!("[apic] mapping IOAPIC...");
                 match crate::arch::x86_64::memory::paging::map_mmio_region(
                     IOAPIC_PHYS_BASE,
                     IOAPIC_SIZE,
                 ) {
                     Ok(ioapic_virt) => {
+                        log_info!("[apic] IOAPIC mapped at virt={:#018x}", ioapic_virt);
                         IOAPIC_BASE.store(ioapic_virt, Ordering::Release);
                         // Read xAPIC LAPIC ID from register 0x020, bits [31:24].
                         let lapic_id =
                             (unsafe { xapic_read(virt, XAPIC_ID_OFF) } >> XAPIC_ID_SHIFT) as u8;
+                        log_info!("[apic] xAPIC LAPIC ID: {}", lapic_id);
                         unsafe { init_ioapic(ioapic_virt, lapic_id) };
                     }
                     Err(_) => {
@@ -301,6 +321,7 @@ pub fn try_init_apic() {
                 }
 
                 log_ok!("[apic] xAPIC initialized");
+                log_info!("[apic] active controller: {}", active_controller());
             }
             Err(_) => {
                 log_warn!("[apic] xAPIC MMIO mapping failed, staying on PIC");
@@ -311,6 +332,7 @@ pub fn try_init_apic() {
 
     // Neither APIC variant is available; the PIC remains active.
     log_info!("[apic] No APIC available, staying on PIC");
+    log_info!("[apic] active controller: {}", active_controller());
 }
 
 /// Send an end-of-interrupt signal to the active interrupt controller.

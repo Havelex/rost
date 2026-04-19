@@ -1,6 +1,7 @@
 pub enum LogLevel {
     Ok,
     Info,
+    Debug,
     Warn,
     Error,
 }
@@ -10,6 +11,7 @@ impl LogLevel {
         match self {
             LogLevel::Ok => "  OK  ",
             LogLevel::Info => " INFO ",
+            LogLevel::Debug => " DEBUG",
             LogLevel::Warn => " WARN ",
             LogLevel::Error => " ERROR",
         }
@@ -20,6 +22,7 @@ impl LogLevel {
         match self {
             LogLevel::Ok => "\x1b[32m",    // Green
             LogLevel::Info => "\x1b[36m",  // Cyan
+            LogLevel::Debug => "\x1b[35m", // Magenta
             LogLevel::Warn => "\x1b[33m",  // Yellow
             LogLevel::Error => "\x1b[31m", // Red
         }

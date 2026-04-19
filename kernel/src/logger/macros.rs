@@ -9,6 +9,11 @@ macro_rules! log_info {
 }
 
 #[macro_export]
+macro_rules! log_debug {
+    ($($arg:tt)*) => ($crate::logger::log($crate::logger::LogLevel::Debug, format_args!($($arg)*)));
+}
+
+#[macro_export]
 macro_rules! log_warn {
     ($($arg:tt)*) => ($crate::logger::log($crate::logger::LogLevel::Warn, format_args!($($arg)*)));
 }

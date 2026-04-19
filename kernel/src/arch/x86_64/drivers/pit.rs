@@ -24,6 +24,7 @@ pub fn init() -> Result<()> {
         divisor,
         command
     );
+    log_info!("[pit] low_byte={:#04x} high_byte={:#04x}", low_byte, high_byte);
     unsafe {
         outb(COMMAND_PORT, command);
         outb(CHANNEL_0_PORT, low_byte);
