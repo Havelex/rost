@@ -20,11 +20,14 @@ pub fn handle_hardware_interrupt(irq: u8) {
 
             // Emit a one-shot diagnostic the very first time IRQ0 arrives.
             if !IRQ0_FIRST_SEEN.swap(true, Ordering::Relaxed) {
-                // SAFETY: This print runs at most once. At this point the main
-                // thread is either in sleep() (spin-loop, no mutex held) or
-                // still in the boot sequence where the console mutex is free.
-                // The single-CPU deadlock risk is accepted here because this is
-                // a diagnostic-only code path.
+                // DIAGNOSTIC NOTE: Calling println! from an interrupt handler risks
+                // a single-CPU deadlock if the main thread holds the console spin-lock
+                // when the IRQ fires (the ISR would spin on the mutex forever).
+                // This print is guarded to run at most once.  At that point the main
+                // thread is either in sleep() (a busy-wait spin with no lock held) or
+                // still in the early boot sequence where the console is idle.
+                // If the system hangs here, it means IRQ0 fired while the main thread
+                // was holding the console lock; remove this print to recover.
                 crate::println!("[irq0] first timer interrupt received");
             }
 
