@@ -14,6 +14,8 @@ use crate::{
 pub(crate) mod console;
 #[macro_use]
 pub(crate) mod logger;
+#[macro_use]
+pub(crate) mod keyboard;
 pub(crate) mod arch;
 pub(crate) mod boot;
 pub(crate) mod cpu;
@@ -99,6 +101,14 @@ pub fn init(info: BootInfo) -> ! {
     println!();
     println!("Done!");
     println!("Press any key to continue...");
+
+    let key = wait_for_key!();
+    print!("Key pressed: scancode={:#04x}", key.scancode);
+    if let Some(c) = key.ascii {
+        println!(" ('{}')", c);
+    } else {
+        println!(" (no ASCII)");
+    }
 
     loop {
         <Arch as Architecture>::Cpu::halt()

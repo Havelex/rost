@@ -95,4 +95,8 @@ impl Architecture for X86_64 {
     fn send_eoi(irq: u8) {
         interrupts::send_eoi(irq);
     }
+
+    unsafe fn read_port_u8(port: u16) -> u8 {
+        unsafe { crate::arch::x86_64::asm::inb(port) }
+    }
 }
