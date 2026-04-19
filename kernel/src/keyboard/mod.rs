@@ -4,6 +4,8 @@ use core::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 static SCANCODE_BUFFER: AtomicU8 = AtomicU8::new(0);
 /// Set to `true` by the IRQ handler when a new scancode is waiting to be read.
 static SCANCODE_READY: AtomicBool = AtomicBool::new(false);
+/// When `false`, the IRQ handler discards all incoming scancodes.
+static KEYBOARD_ENABLED: AtomicBool = AtomicBool::new(true);
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -31,9 +33,31 @@ pub enum KeyEvent {
 ///
 /// Called **only** from the keyboard IRQ handler (IRQ 1).  Must not call any
 /// function that acquires a mutex (e.g. `print!`).
+/// Scancodes are silently dropped when the keyboard is disabled.
 pub fn push_scancode(scancode: u8) {
+    if !KEYBOARD_ENABLED.load(Ordering::Acquire) {
+        return;
+    }
     SCANCODE_BUFFER.store(scancode, Ordering::Release);
     SCANCODE_READY.store(true, Ordering::Release);
+}
+
+// ── Enable / disable ──────────────────────────────────────────────────────────
+
+/// Enable keyboard input. Scancodes from IRQ 1 will be stored in the buffer.
+pub fn enable() {
+    KEYBOARD_ENABLED.store(true, Ordering::Release);
+}
+
+/// Disable keyboard input. Scancodes from IRQ 1 are discarded until [`enable`]
+/// is called. Any scancode already in the buffer is left untouched.
+pub fn disable() {
+    KEYBOARD_ENABLED.store(false, Ordering::Release);
+}
+
+/// Returns `true` if the keyboard is currently enabled.
+pub fn is_enabled() -> bool {
+    KEYBOARD_ENABLED.load(Ordering::Acquire)
 }
 
 // ── Detection helpers ─────────────────────────────────────────────────────────
