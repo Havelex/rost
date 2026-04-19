@@ -37,4 +37,8 @@ pub trait Architecture {
     fn enable_interrupts();
     fn disable_interrupts();
     fn send_eoi(irq: u8);
+    /// Read the next byte from the PS/2 keyboard data port (port 0x60).
+    ///
+    /// Only valid to call when a keyboard interrupt (IRQ 1) has fired.
+    fn read_keyboard_scancode() -> u8;
 }

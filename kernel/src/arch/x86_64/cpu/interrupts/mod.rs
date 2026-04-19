@@ -149,6 +149,7 @@ pub fn init() -> Result<()> {
         // unmasked by pit::init() once the PIT counter has been fully
         // programmed, preventing spurious timer interrupts during early boot.
         pic::clear_mask(pic::IRQ_CASCADE); // IRQ2: cascade (required for slave PIC IRQs)
+        pic::clear_mask(pic::IRQ_KEYBOARD); // IRQ1: PS/2 keyboard
         Ok(())
     })?;
     Ok(())

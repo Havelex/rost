@@ -28,6 +28,10 @@ impl Cpu for X86Cpu {
             core::arch::asm!("cli", options(nomem, nostack));
         }
     }
+
+    fn wait_for_interrupt() {
+        unsafe { core::arch::asm!("hlt", options(nomem, nostack)) }
+    }
 }
 
 pub trait X86CpuExt {

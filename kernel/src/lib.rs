@@ -4,6 +4,7 @@ use crate::{
     arch::{Arch, Architecture},
     boot::BootInfo,
     cpu::Cpu,
+    cpu::interrupts::hardware::wait_for_key,
     error::Result,
     logger::indent::{pop_indent, push_indent},
     memory::regions::MemMap,
@@ -88,6 +89,10 @@ pub fn init(info: BootInfo) -> ! {
     .unwrap();
     log_info!("Enabling interrupts after driver initialization");
     Arch::enable_interrupts();
+
+    println!("\nPress any key to continue...");
+    // Block until a key is pressed; the scancode itself is not needed here.
+    let _ = wait_for_key();
 
     println!("\nFinishing boot");
 

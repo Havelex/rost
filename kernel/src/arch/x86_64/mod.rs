@@ -95,4 +95,8 @@ impl Architecture for X86_64 {
     fn send_eoi(irq: u8) {
         interrupts::send_eoi(irq);
     }
+
+    fn read_keyboard_scancode() -> u8 {
+        unsafe { crate::arch::x86_64::asm::inb(0x60) }
+    }
 }
