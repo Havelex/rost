@@ -100,7 +100,7 @@ pub fn init(info: BootInfo) -> ! {
 
     println!();
     println!("Done!");
-    println!("Keyboard input active — press keys to log them (Esc to stop):");
+    println!("Keyboard input active -- press keys to log them (Esc to stop):");
 
     loop {
         let key = wait_for_key!();
