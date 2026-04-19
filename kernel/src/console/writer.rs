@@ -1,5 +1,8 @@
 use crate::console::{font, framebuffer::Framebuffer};
-use core::fmt::{self, Write};
+use core::{
+    ffi::c_longlong,
+    fmt::{self, Write},
+};
 use spin::{Mutex, Once};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -98,14 +101,27 @@ impl Console {
     }
 
     fn apply_ansi_code(&mut self, code: u32) {
-        match code {
-            0 => self.color = 0xFFFFFFFF,  // Reset
-            31 => self.color = 0xFFFF0000, // Red
-            32 => self.color = 0xFF00FF00, // Green
-            33 => self.color = 0xFFFFFF00, // Yellow
-            34 => self.color = 0xFF0000FF, // Blue
-            36 => self.color = 0xFF00FFFF, // Cyan
-            _ => {}                        // Ignore others for now
+        self.color = match code {
+            00 => 0xFF__FF_FF_FF, // Reset
+            30 => 0xFF__00_00_00, // Black
+            31 => 0xFF__80_00_00, // Red
+            32 => 0xFF__00_80_00, // Green
+            33 => 0xFF__80_80_00, // Yellow
+            34 => 0xFF__00_00_80, // Blue
+            35 => 0xFF__80_00_80, // Magenta
+            36 => 0xFF__00_80_80, // Cyan
+            37 => 0xFF__80_80_80, // Gray
+            38 => 0xFF__80_40_00, // Orange
+            90 => 0xFF__40_40_40, // Bright Black
+            91 => 0xFF__FF_00_00, // Bright Red
+            92 => 0xFF__00_FF_00, // Bright Green
+            93 => 0xFF__FF_FF_00, // Bright Yellow
+            94 => 0xFF__00_00_FF, // Bright Blue
+            95 => 0xFF__FF_00_FF, // Bright Magenta
+            96 => 0xFF__00_FF_FF, // Bright Cyan
+            97 => 0xFF__FF_FF_FF, // Bright White
+            98 => 0xFF__FF_80_00, // Bright Orange
+            _ => self.color,      // Ignore others for now
         }
     }
 
