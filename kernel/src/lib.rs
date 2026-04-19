@@ -6,6 +6,7 @@ use crate::{
     cpu::Cpu,
     error::Result,
     logger::indent::{pop_indent, push_indent},
+    logo::print_logo,
     memory::regions::MemMap,
     time::sleep,
 };
@@ -20,6 +21,7 @@ pub(crate) mod arch;
 pub(crate) mod boot;
 pub(crate) mod cpu;
 pub(crate) mod error;
+mod logo;
 pub(crate) mod memory;
 pub(crate) mod panic;
 pub(crate) mod time;
@@ -101,46 +103,8 @@ pub fn init(info: BootInfo) -> ! {
     println!("Done!");
     sleep(1000);
     cls!();
-
-    //                    # ###       #######
-    //                  /  /###     /       ###
-    //                 /  /  ###   /         ##   #
-    //                /  ##   ###  ##        #   ##
-    //               /  ###    ###  ###          ##
-    // ###  /###    ##   ##     ## ## ###      ########
-    //  ###/ #### / ##   ##     ##  ### ###   ########
-    //   ##   ###/  ##   ##     ##    ### ###    ##
-    //   ##         ##   ##     ##      ### /##  ##
-    //   ##         ##   ##     ##        #/ /## ##
-    //   ##          ##  ##     ##         #/ ## ##
-    //   ##           ## #      /           # /  ##
-    //   ##            ###     /  /##        /   ##
-    //   ###            ######/  /  ########/    ##
-    //    ###             ###   /     #####       ##
-    //                          |
-    //                           \)
-
-    print!("\x1b[91m");
-    println!("              .                 ...");
-    println!("          :*@@#@@+.          +@@##@@*.");
-    println!("         *#:     ;@;       .@+.     ;@+");
-    println!("        +*         @:      @.         #:");
-    println!("        @          :*     :*          :*");
-    println!("        @          ;*     :*          ;*");
-    println!("        +#        .@.      @;        .@.");
-    println!("         +@+.  .:*@:\x1b[90m\\\x1b[91m      ##:    .+@:\x1b[90m\\");
-    println!(
-        "        \x1b[90m/\x1b[91m .+#@@@*;  \x1b[90m\\       /\x1b[91m:*@@@@#;\x1b[90m\\  \\"
-    );
-    println!("       \x1b[90m/  /          \\     /          \\  \\");
-    println!("       \x1b[90m/ /           \\     /           \\  \\\x1b[98m");
-    println!("   ...\x1b[90m/  /            \\   /             \\  \\\x1b[98m");
-    println!(" ;@@@@@*/            .*@@@*.             \x1b[90m\\\x1b[98m;#@@#+");
-    println!(";@@@@@@@*           :@@@@@@@.            *@@@@@@#");
-    println!("+@@@@@@@@           #@@@@@@@+            @@@@@@@@.");
-    println!(":@@@@@@@+           :@@@@@@@.            *@@@@@@#");
-    println!(" .*@@@#;             .*@@@*.              ;#@@#+");
-    print!("\x1b[0m");
+    print_logo();
+    print!("> ");
 
     loop {
         let key = wait_for_key!();
@@ -152,11 +116,12 @@ pub fn init(info: BootInfo) -> ! {
         }
 
         match key.ascii {
-            Some('\n') => println!(""),
-            Some('\t') => println!("\t"),
-            Some(' ') => println!(" "),
-            Some(c) => println!("{}", c),
-            None => println!("{:#04x}", key.scancode),
+            Some('\n') => print!("\n> "),
+            Some('\t') => print!("\t"),
+            Some(' ') => print!(" "),
+            Some(c) => print!("{}", c),
+            // None => print!("{:#04x}", key.scancode),
+            None => (),
         }
     }
 
