@@ -1,5 +1,5 @@
 use crate::{
-    arch::x86_64::asm::{inb, outb},
+    arch::x86_64::{asm::outb, cpu::interrupts::pic},
     error::Result,
 };
 
@@ -26,6 +26,17 @@ pub fn init() -> Result<()> {
         outb(CHANNEL_0_PORT, low_byte);
         outb(CHANNEL_0_PORT, high_byte);
     }
+
+    // The PIT counter is now fully programmed.  Unmask IRQ0 so that timer
+    // interrupts begin firing from a known, configured state.  This call is
+    // deliberately placed here rather than in pic::init() / interrupts::init()
+    // to prevent the firmware-default (typically ~18 Hz) timer from firing
+    // during early boot before the kernel is ready.
+    //
+    // When the APIC is active the PIC is already disabled at this point, so
+    // this write is harmless — timer interrupts arrive via the IOAPIC entry
+    // that was programmed during try_init_apic().
+    pic::clear_mask(pic::IRQ_PIT_TIMER);
 
     Ok(())
 }

@@ -13,14 +13,8 @@ pub fn handle_hardware_interrupt(irq: u8) {
     match irq {
         0 => {
             increment_ticks();
-            println!("[timer] IRQ0 received");
         }
-        1 => {
-            println!("[keyboard] IRQ1 received");
-        }
-        _ => {
-            println!("[interrupt] unknown IRQ: {}", irq);
-        }
+        _ => {}
     }
 
     <Arch as Architecture>::send_eoi(irq);
