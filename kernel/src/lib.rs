@@ -97,10 +97,50 @@ pub fn init(info: BootInfo) -> ! {
         sleep(1000);
         print!(".");
     }
-
-    println!();
+    sleep(1000);
     println!("Done!");
-    println!("Keyboard input active -- press keys to log them (Esc to stop):");
+    sleep(1000);
+    cls!();
+
+    //                    # ###       #######
+    //                  /  /###     /       ###
+    //                 /  /  ###   /         ##   #
+    //                /  ##   ###  ##        #   ##
+    //               /  ###    ###  ###          ##
+    // ###  /###    ##   ##     ## ## ###      ########
+    //  ###/ #### / ##   ##     ##  ### ###   ########
+    //   ##   ###/  ##   ##     ##    ### ###    ##
+    //   ##         ##   ##     ##      ### /##  ##
+    //   ##         ##   ##     ##        #/ /## ##
+    //   ##          ##  ##     ##         #/ ## ##
+    //   ##           ## #      /           # /  ##
+    //   ##            ###     /  /##        /   ##
+    //   ###            ######/  /  ########/    ##
+    //    ###             ###   /     #####       ##
+    //                          |
+    //                           \)
+
+    print!("\x1b[91m");
+    println!("              .                 ...");
+    println!("          :*@@#@@+.          +@@##@@*.");
+    println!("         *#:     ;@;       .@+.     ;@+");
+    println!("        +*         @:      @.         #:");
+    println!("        @          :*     :*          :*");
+    println!("        @          ;*     :*          ;*");
+    println!("        +#        .@.      @;        .@.");
+    println!("         +@+.  .:*@:\x1b[90m\\\x1b[91m      ##:    .+@:\x1b[90m\\");
+    println!(
+        "        \x1b[90m/\x1b[91m .+#@@@*;  \x1b[90m\\       /\x1b[91m:*@@@@#;\x1b[90m\\  \\"
+    );
+    println!("       \x1b[90m/  /          \\     /          \\  \\");
+    println!("       \x1b[90m/ /           \\     /           \\  \\\x1b[98m");
+    println!("   ...\x1b[90m/  /            \\   /             \\  \\\x1b[98m");
+    println!(" ;@@@@@*/            .*@@@*.             \x1b[90m\\\x1b[98m;#@@#+");
+    println!(";@@@@@@@*           :@@@@@@@.            *@@@@@@#");
+    println!("+@@@@@@@@           #@@@@@@@+            @@@@@@@@.");
+    println!(":@@@@@@@+           :@@@@@@@.            *@@@@@@#");
+    println!(" .*@@@#;             .*@@@*.              ;#@@#+");
+    print!("\x1b[0m");
 
     loop {
         let key = wait_for_key!();
@@ -112,11 +152,11 @@ pub fn init(info: BootInfo) -> ! {
         }
 
         match key.ascii {
-            Some('\n') => println!("[keyboard] Enter"),
-            Some('\t') => println!("[keyboard] Tab"),
-            Some(' ')  => println!("[keyboard] Space"),
-            Some(c)    => println!("[keyboard] '{}' (scancode={:#04x})", c, key.scancode),
-            None       => println!("[keyboard] scancode={:#04x}", key.scancode),
+            Some('\n') => println!(""),
+            Some('\t') => println!("\t"),
+            Some(' ') => println!(" "),
+            Some(c) => println!("{}", c),
+            None => println!("{:#04x}", key.scancode),
         }
     }
 

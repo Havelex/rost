@@ -49,6 +49,14 @@ impl Console {
         }
     }
 
+    pub fn clear(&mut self) {
+        if let Some(ref mut fb) = self.fb {
+            fb.clear(self.bg_color);
+        }
+        self.cursor_x = 0;
+        self.cursor_y = 0;
+    }
+
     pub fn write_char(&mut self, c: char) {
         match self.ansi_state {
             AnsiState::Normal => {
