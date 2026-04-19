@@ -284,12 +284,38 @@ pub fn try_init_apic() {
         // ── xAPIC path (MMIO-based) ───────────────────────────────────────
         match crate::arch::x86_64::memory::paging::map_mmio_region(XAPIC_PHYS_BASE, XAPIC_SIZE) {
             Ok(virt) => {
-                let mut base = unsafe { read(IA32_APIC_BASE_MSR) };
-                base |= IA32_APIC_BASE_MSR_ENABLE;
+                let base = unsafe { read(IA32_APIC_BASE_MSR) };
+                log_info!(
+                    "[apic] IA32_APIC_BASE_MSR: {:#018x} (x2apic={}, en={})",
+                    base,
+                    (base & IA32_APIC_BASE_MSR_X2APIC) != 0,
+                    (base & IA32_APIC_BASE_MSR_ENABLE) != 0,
+                );
+
+                // Preserve the physical base address (bits [47:12]) and
+                // reserved upper bits; clear the control bits [11:0].
+                // Transition through the "disabled" state (EN=0, EXTD=0)
+                // before enabling xAPIC mode (EN=1, EXTD=0).  This is
+                // required by the Intel manual when moving from x2APIC to
+                // xAPIC, and is a no-op when already in xAPIC or disabled
+                // state.  It also handles the case where firmware (Limine)
+                // left the APIC in x2APIC mode — without this step, MMIO
+                // writes to SIVR/TPR are silently discarded and the LAPIC
+                // never accepts external interrupts.
+                let phys_base = base & 0xFFFF_FFFF_FFFF_F000u64;
                 unsafe {
-                    write(IA32_APIC_BASE_MSR, base);
+                    write(IA32_APIC_BASE_MSR, phys_base);                               // disabled
+                    write(IA32_APIC_BASE_MSR, phys_base | IA32_APIC_BASE_MSR_ENABLE);  // xAPIC
                     init_xapic_registers(virt);
                 }
+
+                // Confirm the software-enable bit was written successfully.
+                let sivr = unsafe { xapic_read(virt, XAPIC_SIVR_OFF) };
+                log_info!(
+                    "[apic] xAPIC SIVR readback: {:#010x} (sw_enabled={})",
+                    sivr,
+                    (sivr & XAPIC_SIVR_ENABLE) != 0,
+                );
 
                 XAPIC_BASE.store(virt, Ordering::Release);
 
