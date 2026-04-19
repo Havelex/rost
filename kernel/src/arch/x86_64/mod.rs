@@ -12,7 +12,7 @@ use crate::{
     init_step,
 };
 
-mod asm;
+pub(crate) mod asm;
 pub mod cpu;
 pub mod drivers;
 mod gdt;

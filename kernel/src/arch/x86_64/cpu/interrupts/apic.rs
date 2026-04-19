@@ -205,13 +205,16 @@ unsafe fn ioapic_set_redir(base: usize, irq: u8, vector: u8, dest: u8) {
     }
 }
 
-/// Configure the IOAPIC to route IRQ 0 (PIT timer) to `lapic_id` as vector 32.
+/// Configure the IOAPIC to route IRQ 0 (PIT timer) and IRQ 1 (keyboard) to
+/// `lapic_id` as vectors 32 and 33 respectively.
 ///
 /// # Safety
 /// `base` must be the valid virtual address of the IOAPIC MMIO region.
 unsafe fn init_ioapic(base: usize, lapic_id: u8) {
     // IRQ 0 → vector 32 (0x20), delivered to the LAPIC identified by lapic_id.
     unsafe { ioapic_set_redir(base, 0, 0x20, lapic_id) }
+    // IRQ 1 → vector 33 (0x21), keyboard interrupt.
+    unsafe { ioapic_set_redir(base, 1, 0x21, lapic_id) }
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
