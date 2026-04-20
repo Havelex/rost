@@ -26,6 +26,7 @@ pub(crate) mod memory;
 pub(crate) mod panic;
 pub(crate) mod shell;
 pub(crate) mod time;
+pub(crate) mod vfs;
 
 pub use boot::init as boot;
 
@@ -106,6 +107,7 @@ pub fn init(info: BootInfo) -> ! {
     cls!();
     print_logo();
 
+    vfs::init();
     shell::run();
 
     loop {

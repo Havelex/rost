@@ -52,9 +52,45 @@ fn wait_key_blink() -> crate::keyboard::KeyPress {
 /// Returns normally when the user runs a command that signals
 /// [`CommandResult::Halt`] (e.g. `halt`).  The caller is then responsible for
 /// halting the CPU.
+/// Print the shell prompt: `<cwd> > `.
+fn print_prompt() {
+    let vfs = crate::vfs::VFS.lock();
+    let (buf, len) = vfs.pwd();
+    drop(vfs);
+    let path = core::str::from_utf8(&buf[..len]).unwrap_or("/");
+    crate::print!("{} > ", path);
+}
+
+/// Execute a single command segment, handling output redirection if present.
+fn run_one(segment: &str) -> CommandResult {
+    if let Some(redir_pos) = segment.find('>') {
+        let cmd_part = segment[..redir_pos].trim();
+        let file_part = segment[redir_pos + 1..].trim();
+
+        if file_part.is_empty() {
+            // Bare `>` with no filename – treat as a normal command.
+            command::dispatch(commands::COMMANDS, segment)
+        } else {
+            // Capture command output then write it to the file.
+            crate::console::writer::start_capture();
+            let r = command::dispatch(commands::COMMANDS, cmd_part);
+            let mut cap = [0u8; crate::vfs::MAX_FILE_CONTENT];
+            let len = crate::console::writer::take_capture(&mut cap);
+            let mut vfs = crate::vfs::VFS.lock();
+            if let Err(e) = vfs.write_file(file_part, &cap[..len]) {
+                drop(vfs);
+                crate::println!("redirect: {}: {}", file_part, e.as_str());
+            }
+            r
+        }
+    } else {
+        command::dispatch(commands::COMMANDS, segment)
+    }
+}
+
 pub fn run() {
     let mut buf = InputBuffer::new();
-    crate::print!("> ");
+    print_prompt();
 
     loop {
         let key = wait_key_blink();
@@ -63,12 +99,27 @@ pub fn run() {
             // Enter – execute the current line.
             Some('\n') => {
                 crate::println!();
-                let result = command::dispatch(commands::COMMANDS, buf.as_str().trim());
+                let line = buf.as_str().trim();
+
+                // ── Command chaining: split on `&` and run each segment ───────
+                let mut result = CommandResult::Continue;
+                for segment in line.split('&') {
+                    let segment = segment.trim();
+                    if segment.is_empty() {
+                        continue;
+                    }
+                    result = run_one(segment);
+                    if let CommandResult::Halt = result {
+                        break;
+                    }
+                }
+                // ── End chaining ──────────────────────────────────────────────
+
                 buf.clear();
                 if let CommandResult::Halt = result {
                     break;
                 }
-                crate::print!("> ");
+                print_prompt();
             }
 
             // Backspace – remove the last character from the buffer and

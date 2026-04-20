@@ -14,6 +14,9 @@ enum AnsiState {
     InSequence, // Reading numeric parameters
 }
 
+/// Maximum number of bytes that can be captured in a single redirection.
+const CAPTURE_BUF_SIZE: usize = 4096;
+
 pub struct Console {
     fb: Option<Framebuffer>,
     cursor_x: usize,
@@ -22,6 +25,10 @@ pub struct Console {
     bg_color: u32,
     ansi_state: AnsiState,
     ansi_buffer: u32, // To store numeric codes like '32'
+    // ── Output-capture for `>` redirection ───────────────────────────────────
+    capturing: bool,
+    capture_buf: [u8; CAPTURE_BUF_SIZE],
+    capture_len: usize,
 }
 
 impl Console {
@@ -34,6 +41,9 @@ impl Console {
             bg_color: 0x00000000,
             ansi_state: AnsiState::Normal,
             ansi_buffer: 0,
+            capturing: false,
+            capture_buf: [0; CAPTURE_BUF_SIZE],
+            capture_len: 0,
         }
     }
 
@@ -46,6 +56,9 @@ impl Console {
             bg_color: 0x00000000,
             ansi_state: AnsiState::Normal,
             ansi_buffer: 0,
+            capturing: false,
+            capture_buf: [0; CAPTURE_BUF_SIZE],
+            capture_len: 0,
         }
     }
 
@@ -254,6 +267,15 @@ unsafe impl Send for Console {}
 
 impl Write for Console {
     fn write_str(&mut self, s: &str) -> fmt::Result {
+        // Mirror bytes into the capture buffer when redirection is active.
+        if self.capturing {
+            for &b in s.as_bytes() {
+                if self.capture_len < CAPTURE_BUF_SIZE {
+                    self.capture_buf[self.capture_len] = b;
+                    self.capture_len += 1;
+                }
+            }
+        }
         for c in s.chars() {
             self.write_char(c);
         }
@@ -269,4 +291,26 @@ pub fn init(fb: Framebuffer) -> &'static Mutex<Console> {
 
 pub fn console() -> &'static Mutex<Console> {
     CONSOLE.get().expect("Console not initialized")
+}
+
+/// Begin capturing all text written to the console.
+///
+/// Any bytes subsequently passed to `write_str` are stored in an internal
+/// buffer until [`take_capture`] is called.  Resets the capture length to 0.
+pub fn start_capture() {
+    let mut c = console().lock();
+    c.capture_len = 0;
+    c.capturing = true;
+}
+
+/// Stop capturing and copy the accumulated bytes into `buf`.
+///
+/// Returns the number of bytes written into `buf`.
+pub fn take_capture(buf: &mut [u8]) -> usize {
+    let mut c = console().lock();
+    c.capturing = false;
+    let len = core::cmp::min(c.capture_len, buf.len());
+    buf[..len].copy_from_slice(&c.capture_buf[..len]);
+    c.capture_len = 0;
+    len
 }
