@@ -55,9 +55,4 @@ impl InputBuffer {
         // Safety: only ASCII bytes are ever written into the buffer.
         core::str::from_utf8(&self.buf[..self.len]).unwrap_or("")
     }
-
-    /// Returns `true` when the buffer contains no characters.
-    pub fn is_empty(&self) -> bool {
-        self.len == 0
-    }
 }

@@ -25,6 +25,8 @@ pub struct Command {
 /// Returns [`CommandResult::Continue`] for unknown commands (after printing an
 /// error) and for empty lines.
 pub fn dispatch(commands: &[Command], line: &str) -> CommandResult {
+    // argv is initialised to empty strings; only indices 0..argc are valid and
+    // are the only indices ever read below.
     let mut argv = [""; MAX_ARGS];
     let mut argc = 0usize;
 
