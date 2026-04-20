@@ -282,10 +282,11 @@ impl Console {
         if SCROLL_MODE.load(Ordering::Relaxed) == SCROLL_ANIMATED {
             // Animated: shift one pixel row at a time so the content visibly
             // slides upward.  Each iteration copies the entire framebuffer up
-            // by one pixel row and clears the newly-exposed bottom row, then
-            // sleeps ≈ 10 ms.  16 iterations complete a full character-row
-            // scroll (≈ 160 ms total), which is intentionally slow to show
-            // visible boot-time animation.
+            // by one pixel row, clears the newly-exposed bottom pixel row,
+            // then sleeps ≈ 30 ms.  16 iterations complete a full
+            // character-row scroll (≈ 480 ms total).  The 30 ms sleep is
+            // large enough to remain visible even when the framebuffer copy
+            // itself takes longer than one PIT tick on slow QEMU emulation.
             for _ in 0..char_height {
                 unsafe {
                     core::ptr::copy(
@@ -296,9 +297,12 @@ impl Console {
                     let last_pixel_row_ptr = fb.addr.add(total_fb_bytes - bytes_per_row);
                     core::ptr::write_bytes(last_pixel_row_ptr, 0, bytes_per_row);
                 }
-                // sleep(10) → ticks_to_wait = 10/10 = 1 tick; at ~100 Hz PIT
-                // that is ≈ 10 ms, giving a total of ≈ 160 ms per scroll event.
-                crate::time::sleep(10);
+                // sleep(30) → ticks_to_wait = 3 ticks; at ~100 Hz PIT that is
+                // ≈ 30 ms *after* the copy, giving ≈ 480 ms per full scroll
+                // event.  Using 30 ms (rather than 10 ms) ensures a visible
+                // delay even when the framebuffer copy itself takes longer
+                // than one tick on slow QEMU MMIO emulation.
+                crate::time::sleep(30);
             }
         } else {
             // Instant: shift the entire content up in a single memory copy.
