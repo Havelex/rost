@@ -145,6 +145,22 @@ impl Console {
             '\t' => {
                 self.cursor_x = (self.cursor_x + 4) & !3;
             }
+            '\x08' => {
+                // Backspace: move cursor back one column and erase the character.
+                if self.cursor_x > 0 {
+                    self.cursor_x -= 1;
+                    if let Some(ref mut fb) = self.fb {
+                        let glyph = font::glyph(' ');
+                        fb.draw_glyph(
+                            self.cursor_x * 8,
+                            self.cursor_y * 16,
+                            glyph,
+                            self.color,
+                            self.bg_color,
+                        );
+                    }
+                }
+            }
             _ => {
                 let (width_chars, height_chars) = if let Some(ref fb) = self.fb {
                     (fb.width / 8, fb.height / 16)

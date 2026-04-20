@@ -24,6 +24,7 @@ pub(crate) mod error;
 mod logo;
 pub(crate) mod memory;
 pub(crate) mod panic;
+pub(crate) mod shell;
 pub(crate) mod time;
 
 pub use boot::init as boot;
@@ -104,26 +105,8 @@ pub fn init(info: BootInfo) -> ! {
     sleep(1000);
     cls!();
     print_logo();
-    print!("> ");
 
-    loop {
-        let key = wait_for_key!();
-
-        // Scancode 0x01 = Escape — stop logging as a demonstration.
-        if key.keycode == 0x01 {
-            println!("[keyboard] Escape pressed, halting.");
-            break;
-        }
-
-        match key.ascii {
-            Some('\n') => print!("\n> "),
-            Some('\t') => print!("\t"),
-            Some(' ') => print!(" "),
-            Some(c) => print!("{}", c),
-            // None => print!("{:#04x}", key.scancode),
-            None => (),
-        }
-    }
+    shell::run();
 
     loop {
         <Arch as Architecture>::Cpu::halt()

@@ -199,6 +199,7 @@ const SCANCODE_TO_ASCII: [Option<char>; 0x80] = {
     t[0x32] = Some('m');
 
     // Special / whitespace keys
+    t[0x0E] = Some('\x08'); // Backspace
     t[0x0F] = Some('\t'); // Tab
     t[0x1C] = Some('\n'); // Enter
     t[0x39] = Some(' '); // Space
