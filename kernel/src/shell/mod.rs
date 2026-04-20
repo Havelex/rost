@@ -61,6 +61,33 @@ fn print_prompt() {
     crate::print!("{} > ", path);
 }
 
+/// Execute a single command segment, handling output redirection if present.
+fn run_one(segment: &str) -> CommandResult {
+    if let Some(redir_pos) = segment.find('>') {
+        let cmd_part = segment[..redir_pos].trim();
+        let file_part = segment[redir_pos + 1..].trim();
+
+        if file_part.is_empty() {
+            // Bare `>` with no filename – treat as a normal command.
+            command::dispatch(commands::COMMANDS, segment)
+        } else {
+            // Capture command output then write it to the file.
+            crate::console::writer::start_capture();
+            let r = command::dispatch(commands::COMMANDS, cmd_part);
+            let mut cap = [0u8; crate::vfs::MAX_FILE_CONTENT];
+            let len = crate::console::writer::take_capture(&mut cap);
+            let mut vfs = crate::vfs::VFS.lock();
+            if let Err(e) = vfs.write_file(file_part, &cap[..len]) {
+                drop(vfs);
+                crate::println!("redirect: {}: {}", file_part, e.as_str());
+            }
+            r
+        }
+    } else {
+        command::dispatch(commands::COMMANDS, segment)
+    }
+}
+
 pub fn run() {
     let mut buf = InputBuffer::new();
     print_prompt();
@@ -74,31 +101,19 @@ pub fn run() {
                 crate::println!();
                 let line = buf.as_str().trim();
 
-                // ── Output redirection: detect `cmd [args] > filename` ────────
-                let result = if let Some(redir_pos) = line.find('>') {
-                    let cmd_part = line[..redir_pos].trim();
-                    let file_part = line[redir_pos + 1..].trim();
-
-                    if file_part.is_empty() {
-                        // Bare `>` with no filename – treat as normal command.
-                        command::dispatch(commands::COMMANDS, line)
-                    } else {
-                        // Capture command output then write it to the file.
-                        crate::console::writer::start_capture();
-                        let r = command::dispatch(commands::COMMANDS, cmd_part);
-                        let mut cap = [0u8; crate::vfs::MAX_FILE_CONTENT];
-                        let len = crate::console::writer::take_capture(&mut cap);
-                        let mut vfs = crate::vfs::VFS.lock();
-                        if let Err(e) = vfs.write_file(file_part, &cap[..len]) {
-                            drop(vfs);
-                            crate::println!("redirect: {}: {}", file_part, e.as_str());
-                        }
-                        r
+                // ── Command chaining: split on `&` and run each segment ───────
+                let mut result = CommandResult::Continue;
+                for segment in line.split('&') {
+                    let segment = segment.trim();
+                    if segment.is_empty() {
+                        continue;
                     }
-                } else {
-                    command::dispatch(commands::COMMANDS, line)
-                };
-                // ── End redirection ───────────────────────────────────────────
+                    result = run_one(segment);
+                    if let CommandResult::Halt = result {
+                        break;
+                    }
+                }
+                // ── End chaining ──────────────────────────────────────────────
 
                 buf.clear();
                 if let CommandResult::Halt = result {
