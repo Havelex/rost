@@ -2,8 +2,37 @@ use crate::console::{font, framebuffer::Framebuffer};
 use core::{
     ffi::c_longlong,
     fmt::{self, Write},
+    sync::atomic::{AtomicU8, Ordering},
 };
 use spin::{Mutex, Once};
+
+/// Controls whether `scroll_up` shifts line-by-line (animated) or all at once.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScrollMode {
+    /// Progressive pixel-row-by-pixel-row scrolling with a small delay between
+    /// each shift — used during the boot sequence for visual feedback.
+    Animated,
+    /// All lines shift up in a single memory copy — used once the shell starts.
+    Instant,
+}
+
+const SCROLL_ANIMATED: u8 = 0;
+const SCROLL_INSTANT: u8 = 1;
+
+/// Global scroll mode, defaulting to `Animated` at kernel start.
+static SCROLL_MODE: AtomicU8 = AtomicU8::new(SCROLL_ANIMATED);
+
+/// Set the console scroll mode.
+///
+/// Call `set_scroll_mode(ScrollMode::Instant)` before entering the interactive
+/// shell so that command output scrolls without delay.
+pub fn set_scroll_mode(mode: ScrollMode) {
+    let val = match mode {
+        ScrollMode::Animated => SCROLL_ANIMATED,
+        ScrollMode::Instant => SCROLL_INSTANT,
+    };
+    SCROLL_MODE.store(val, Ordering::Relaxed);
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 enum AnsiState {
@@ -246,18 +275,42 @@ impl Console {
         };
 
         let bytes_per_row = fb.pitch;
-        let char_height = 16;
+        let char_height = 16usize;
         let shift_amount_bytes = char_height * bytes_per_row;
         let total_fb_bytes = fb.height * bytes_per_row;
 
-        unsafe {
-            core::ptr::copy(
-                fb.addr.add(shift_amount_bytes),
-                fb.addr,
-                total_fb_bytes - shift_amount_bytes,
-            );
-            let last_row_ptr = fb.addr.add(total_fb_bytes - shift_amount_bytes);
-            core::ptr::write_bytes(last_row_ptr, 0, shift_amount_bytes);
+        if SCROLL_MODE.load(Ordering::Relaxed) == SCROLL_ANIMATED {
+            // Animated: shift one pixel row at a time so the content visibly
+            // slides upward.  Each iteration copies the entire framebuffer up
+            // by one pixel row and clears the newly-exposed bottom row, then
+            // sleeps ≈ 10 ms.  16 iterations complete a full character-row
+            // scroll (≈ 160 ms total), which is intentionally slow to show
+            // visible boot-time animation.
+            for _ in 0..char_height {
+                unsafe {
+                    core::ptr::copy(
+                        fb.addr.add(bytes_per_row),
+                        fb.addr,
+                        total_fb_bytes - bytes_per_row,
+                    );
+                    let last_pixel_row_ptr = fb.addr.add(total_fb_bytes - bytes_per_row);
+                    core::ptr::write_bytes(last_pixel_row_ptr, 0, bytes_per_row);
+                }
+                // sleep(10) → ticks_to_wait = 10/10 = 1 tick; at ~100 Hz PIT
+                // that is ≈ 10 ms, giving a total of ≈ 160 ms per scroll event.
+                crate::time::sleep(10);
+            }
+        } else {
+            // Instant: shift the entire content up in a single memory copy.
+            unsafe {
+                core::ptr::copy(
+                    fb.addr.add(shift_amount_bytes),
+                    fb.addr,
+                    total_fb_bytes - shift_amount_bytes,
+                );
+                let last_row_ptr = fb.addr.add(total_fb_bytes - shift_amount_bytes);
+                core::ptr::write_bytes(last_row_ptr, 0, shift_amount_bytes);
+            }
         }
     }
 }

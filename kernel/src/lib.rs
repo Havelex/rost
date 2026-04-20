@@ -108,6 +108,7 @@ pub fn init(info: BootInfo) -> ! {
     print_logo();
 
     vfs::init();
+    console::writer::set_scroll_mode(console::writer::ScrollMode::Instant);
     shell::run();
 
     loop {
