@@ -18,6 +18,31 @@ static ALTGR_HELD: AtomicBool = AtomicBool::new(false);
 /// The previous byte from the PS/2 controller was the E0 extended prefix.
 static E0_PREFIX_SEEN: AtomicBool = AtomicBool::new(false);
 
+// ── Layout selection ──────────────────────────────────────────────────────────
+
+/// Active keyboard layout: 0 = EN (US QWERTY), 1 = DE (German QWERTZ).
+static LAYOUT: AtomicU8 = AtomicU8::new(0);
+
+/// Supported keyboard layouts.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Layout {
+    En = 0,
+    De = 1,
+}
+
+/// Set the active keyboard layout.
+pub fn set_layout(layout: Layout) {
+    LAYOUT.store(layout as u8, Ordering::Release);
+}
+
+/// Get the active keyboard layout.
+pub fn get_layout() -> Layout {
+    match LAYOUT.load(Ordering::Acquire) {
+        1 => Layout::De,
+        _ => Layout::En,
+    }
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 /// Active modifier keys at the time of a key-press.
@@ -132,23 +157,33 @@ pub fn get_ascii(scancode: u8) -> Option<char> {
     get_ascii_with_mods(scancode, false, false)
 }
 
-/// Returns the ASCII character for `scancode` applying `shift` and `altgr`.
+/// Returns the character for `scancode` applying `shift` and `altgr`, using
+/// the currently active keyboard layout.
 pub fn get_ascii_with_mods(scancode: u8, shift: bool, altgr: bool) -> Option<char> {
+    let (base, shifted, altgr_table) = match get_layout() {
+        Layout::En => (
+            &SCANCODE_TO_ASCII_EN,
+            &SCANCODE_TO_ASCII_EN_SHIFTED,
+            &SCANCODE_TO_ASCII_EN_ALTGR,
+        ),
+        Layout::De => (
+            &SCANCODE_TO_ASCII_DE,
+            &SCANCODE_TO_ASCII_DE_SHIFTED,
+            &SCANCODE_TO_ASCII_DE_ALTGR,
+        ),
+    };
+
     let idx = scancode as usize;
-    if altgr {
-        if idx < SCANCODE_TO_ASCII_ALTGR.len() {
-            if let Some(c) = SCANCODE_TO_ASCII_ALTGR[idx] {
-                return Some(c);
-            }
+    if altgr && idx < altgr_table.len() {
+        if let Some(c) = altgr_table[idx] {
+            return Some(c);
         }
     }
-    if shift {
-        if idx < SCANCODE_TO_ASCII_SHIFTED.len() {
-            return SCANCODE_TO_ASCII_SHIFTED[idx];
-        }
+    if shift && idx < shifted.len() {
+        return shifted[idx];
     }
-    if idx < SCANCODE_TO_ASCII.len() {
-        SCANCODE_TO_ASCII[idx]
+    if idx < base.len() {
+        base[idx]
     } else {
         None
     }
@@ -230,70 +265,36 @@ macro_rules! wait_for_key {
     };
 }
 
-// ── Scancode → ASCII table (US QWERTY) ────────────────────────────────────────
+// ── Scancode → character tables ───────────────────────────────────────────────
 //
 // Index = scancode (press, bit 7 = 0).  Entry is `None` for non-printable keys.
-// Highest scancode in the standard set is 0x58; the table is padded to 0x80 so
-// that any scancode can be used as an index without bounds issues.
+// Tables are padded to 0x80 so any standard scancode can be used as an index.
 
-const SCANCODE_TO_ASCII: [Option<char>; 0x80] = {
+// ── EN (US QWERTY) ────────────────────────────────────────────────────────────
+
+const SCANCODE_TO_ASCII_EN: [Option<char>; 0x80] = {
     let mut t: [Option<char>; 0x80] = [None; 0x80];
 
-    // Numbers row
-    t[0x02] = Some('1');
-    t[0x03] = Some('2');
-    t[0x04] = Some('3');
-    t[0x05] = Some('4');
-    t[0x06] = Some('5');
-    t[0x07] = Some('6');
-    t[0x08] = Some('7');
-    t[0x09] = Some('8');
-    t[0x0A] = Some('9');
-    t[0x0B] = Some('0');
-    t[0x0C] = Some('-');
-    t[0x0D] = Some('=');
+    t[0x02] = Some('1');  t[0x03] = Some('2');  t[0x04] = Some('3');
+    t[0x05] = Some('4');  t[0x06] = Some('5');  t[0x07] = Some('6');
+    t[0x08] = Some('7');  t[0x09] = Some('8');  t[0x0A] = Some('9');
+    t[0x0B] = Some('0');  t[0x0C] = Some('-');  t[0x0D] = Some('=');
 
-    // Top letter row (QWERTY)
-    t[0x10] = Some('q');
-    t[0x11] = Some('w');
-    t[0x12] = Some('e');
-    t[0x13] = Some('r');
-    t[0x14] = Some('t');
-    t[0x15] = Some('y');
-    t[0x16] = Some('u');
-    t[0x17] = Some('i');
-    t[0x18] = Some('o');
-    t[0x19] = Some('p');
-    t[0x1A] = Some('[');
-    t[0x1B] = Some(']');
+    t[0x10] = Some('q');  t[0x11] = Some('w');  t[0x12] = Some('e');
+    t[0x13] = Some('r');  t[0x14] = Some('t');  t[0x15] = Some('y');
+    t[0x16] = Some('u');  t[0x17] = Some('i');  t[0x18] = Some('o');
+    t[0x19] = Some('p');  t[0x1A] = Some('[');  t[0x1B] = Some(']');
 
-    // Home row (ASDF)
-    t[0x1E] = Some('a');
-    t[0x1F] = Some('s');
-    t[0x20] = Some('d');
-    t[0x21] = Some('f');
-    t[0x22] = Some('g');
-    t[0x23] = Some('h');
-    t[0x24] = Some('j');
-    t[0x25] = Some('k');
-    t[0x26] = Some('l');
-    t[0x27] = Some(';');
-    t[0x28] = Some('\'');
-    t[0x2B] = Some('\\');
+    t[0x1E] = Some('a');  t[0x1F] = Some('s');  t[0x20] = Some('d');
+    t[0x21] = Some('f');  t[0x22] = Some('g');  t[0x23] = Some('h');
+    t[0x24] = Some('j');  t[0x25] = Some('k');  t[0x26] = Some('l');
+    t[0x27] = Some(';');  t[0x28] = Some('\''); t[0x2B] = Some('\\');
 
-    // Bottom row (ZXCV)
-    t[0x2C] = Some('z');
-    t[0x2D] = Some('x');
-    t[0x2E] = Some('c');
-    t[0x2F] = Some('v');
-    t[0x30] = Some('b');
-    t[0x31] = Some('n');
-    t[0x32] = Some('m');
-    t[0x33] = Some(',');
-    t[0x34] = Some('.');
+    t[0x2C] = Some('z');  t[0x2D] = Some('x');  t[0x2E] = Some('c');
+    t[0x2F] = Some('v');  t[0x30] = Some('b');  t[0x31] = Some('n');
+    t[0x32] = Some('m');  t[0x33] = Some(',');  t[0x34] = Some('.');
     t[0x35] = Some('/');
 
-    // Special / whitespace keys
     t[0x0E] = Some('\x08'); // Backspace
     t[0x0F] = Some('\t');   // Tab
     t[0x1C] = Some('\n');   // Enter
@@ -302,65 +303,29 @@ const SCANCODE_TO_ASCII: [Option<char>; 0x80] = {
     t
 };
 
-/// Shifted variants (Shift held).
-const SCANCODE_TO_ASCII_SHIFTED: [Option<char>; 0x80] = {
+const SCANCODE_TO_ASCII_EN_SHIFTED: [Option<char>; 0x80] = {
     let mut t: [Option<char>; 0x80] = [None; 0x80];
 
-    // Numbers row → symbols
-    t[0x02] = Some('!');
-    t[0x03] = Some('@');
-    t[0x04] = Some('#');
-    t[0x05] = Some('$');
-    t[0x06] = Some('%');
-    t[0x07] = Some('^');
-    t[0x08] = Some('&');
-    t[0x09] = Some('*');
-    t[0x0A] = Some('(');
-    t[0x0B] = Some(')');
-    t[0x0C] = Some('_');
-    t[0x0D] = Some('+');
+    t[0x02] = Some('!');  t[0x03] = Some('@');  t[0x04] = Some('#');
+    t[0x05] = Some('$');  t[0x06] = Some('%');  t[0x07] = Some('^');
+    t[0x08] = Some('&');  t[0x09] = Some('*');  t[0x0A] = Some('(');
+    t[0x0B] = Some(')');  t[0x0C] = Some('_');  t[0x0D] = Some('+');
 
-    // Top letter row → uppercase
-    t[0x10] = Some('Q');
-    t[0x11] = Some('W');
-    t[0x12] = Some('E');
-    t[0x13] = Some('R');
-    t[0x14] = Some('T');
-    t[0x15] = Some('Y');
-    t[0x16] = Some('U');
-    t[0x17] = Some('I');
-    t[0x18] = Some('O');
-    t[0x19] = Some('P');
-    t[0x1A] = Some('{');
-    t[0x1B] = Some('}');
+    t[0x10] = Some('Q');  t[0x11] = Some('W');  t[0x12] = Some('E');
+    t[0x13] = Some('R');  t[0x14] = Some('T');  t[0x15] = Some('Y');
+    t[0x16] = Some('U');  t[0x17] = Some('I');  t[0x18] = Some('O');
+    t[0x19] = Some('P');  t[0x1A] = Some('{');  t[0x1B] = Some('}');
 
-    // Home row → uppercase + symbols
-    t[0x1E] = Some('A');
-    t[0x1F] = Some('S');
-    t[0x20] = Some('D');
-    t[0x21] = Some('F');
-    t[0x22] = Some('G');
-    t[0x23] = Some('H');
-    t[0x24] = Some('J');
-    t[0x25] = Some('K');
-    t[0x26] = Some('L');
-    t[0x27] = Some(':');
-    t[0x28] = Some('"');
-    t[0x2B] = Some('|');
+    t[0x1E] = Some('A');  t[0x1F] = Some('S');  t[0x20] = Some('D');
+    t[0x21] = Some('F');  t[0x22] = Some('G');  t[0x23] = Some('H');
+    t[0x24] = Some('J');  t[0x25] = Some('K');  t[0x26] = Some('L');
+    t[0x27] = Some(':');  t[0x28] = Some('"');  t[0x2B] = Some('|');
 
-    // Bottom row → uppercase + symbols
-    t[0x2C] = Some('Z');
-    t[0x2D] = Some('X');
-    t[0x2E] = Some('C');
-    t[0x2F] = Some('V');
-    t[0x30] = Some('B');
-    t[0x31] = Some('N');
-    t[0x32] = Some('M');
-    t[0x33] = Some('<');
-    t[0x34] = Some('>');
+    t[0x2C] = Some('Z');  t[0x2D] = Some('X');  t[0x2E] = Some('C');
+    t[0x2F] = Some('V');  t[0x30] = Some('B');  t[0x31] = Some('N');
+    t[0x32] = Some('M');  t[0x33] = Some('<');  t[0x34] = Some('>');
     t[0x35] = Some('?');
 
-    // Backspace, Tab, Enter, Space are the same with Shift held.
     t[0x0E] = Some('\x08');
     t[0x0F] = Some('\t');
     t[0x1C] = Some('\n');
@@ -369,28 +334,138 @@ const SCANCODE_TO_ASCII_SHIFTED: [Option<char>; 0x80] = {
     t
 };
 
-/// AltGr variants (Right Alt / E0+Alt held) — common US/international symbols.
-const SCANCODE_TO_ASCII_ALTGR: [Option<char>; 0x80] = {
+const SCANCODE_TO_ASCII_EN_ALTGR: [Option<char>; 0x80] = {
     let mut t: [Option<char>; 0x80] = [None; 0x80];
 
-    // AltGr + number row
-    t[0x03] = Some('@');  // AltGr+2 → @  (common on many EU layouts)
-    t[0x04] = Some('#');  // AltGr+3 → #
-    t[0x05] = Some('$');  // AltGr+4 → $
-    t[0x07] = Some('^');  // AltGr+6 → ^
-
-    // AltGr + letters (common European / programming symbols)
-    t[0x10] = Some('@');  // AltGr+Q → @
-    t[0x12] = Some('€');  // AltGr+E → €
-    t[0x1A] = Some('[');  // AltGr+[ → [  (German layout: AltGr+8=[ via different key, but useful)
-    t[0x1B] = Some(']');  // AltGr+] → ]
-    t[0x2B] = Some('\\'); // AltGr+\ → \
-    t[0x28] = Some('`');  // AltGr+' → `
-    t[0x35] = Some('~');  // AltGr+/ → ~
-
-    // AltGr + home row
-    t[0x1E] = Some('{');  // AltGr+A → {  (useful mnemonic)
-    t[0x27] = Some('}');  // AltGr+; → }
+    t[0x03] = Some('@');   // AltGr+2 → @
+    t[0x04] = Some('#');   // AltGr+3 → #
+    t[0x05] = Some('$');   // AltGr+4 → $
+    t[0x07] = Some('^');   // AltGr+6 → ^
+    t[0x10] = Some('@');   // AltGr+Q → @
+    t[0x12] = Some('€');   // AltGr+E → €
+    t[0x1A] = Some('[');
+    t[0x1B] = Some(']');
+    t[0x2B] = Some('\\');
+    t[0x28] = Some('`');
+    t[0x35] = Some('~');
+    t[0x1E] = Some('{');
+    t[0x27] = Some('}');
 
     t
 };
+
+// ── DE (German QWERTZ) ────────────────────────────────────────────────────────
+//
+// Physical key differences from US QWERTY:
+//   • y ↔ z swapped
+//   • ü  at [  (0x1A)
+//   • +  at ]  (0x1B)
+//   • ö  at ;  (0x27)
+//   • ä  at '  (0x28)
+//   • #  at \  (0x2B)
+//   • ß  at -  (0x0C)
+//   • -  at /  (0x35)
+//   • ´  at =  (0x0D)  — represented as backtick here (no dead key support)
+
+const SCANCODE_TO_ASCII_DE: [Option<char>; 0x80] = {
+    let mut t: [Option<char>; 0x80] = [None; 0x80];
+
+    t[0x02] = Some('1');  t[0x03] = Some('2');  t[0x04] = Some('3');
+    t[0x05] = Some('4');  t[0x06] = Some('5');  t[0x07] = Some('6');
+    t[0x08] = Some('7');  t[0x09] = Some('8');  t[0x0A] = Some('9');
+    t[0x0B] = Some('0');
+    t[0x0C] = Some('ß');
+    t[0x0D] = Some('`');    // ´ → backtick (dead-key not supported)
+
+    t[0x10] = Some('q');  t[0x11] = Some('w');  t[0x12] = Some('e');
+    t[0x13] = Some('r');  t[0x14] = Some('t');
+    t[0x15] = Some('z');  // z is where y sits on QWERTY
+    t[0x16] = Some('u');  t[0x17] = Some('i');  t[0x18] = Some('o');
+    t[0x19] = Some('p');
+    t[0x1A] = Some('ü');
+    t[0x1B] = Some('+');
+
+    t[0x1E] = Some('a');  t[0x1F] = Some('s');  t[0x20] = Some('d');
+    t[0x21] = Some('f');  t[0x22] = Some('g');  t[0x23] = Some('h');
+    t[0x24] = Some('j');  t[0x25] = Some('k');  t[0x26] = Some('l');
+    t[0x27] = Some('ö');
+    t[0x28] = Some('ä');
+    t[0x2B] = Some('#');
+
+    t[0x2C] = Some('y');  // y is where z sits on QWERTY
+    t[0x2D] = Some('x');  t[0x2E] = Some('c');  t[0x2F] = Some('v');
+    t[0x30] = Some('b');  t[0x31] = Some('n');  t[0x32] = Some('m');
+    t[0x33] = Some(',');  t[0x34] = Some('.');
+    t[0x35] = Some('-');
+
+    t[0x0E] = Some('\x08'); // Backspace
+    t[0x0F] = Some('\t');   // Tab
+    t[0x1C] = Some('\n');   // Enter
+    t[0x39] = Some(' ');    // Space
+
+    t
+};
+
+const SCANCODE_TO_ASCII_DE_SHIFTED: [Option<char>; 0x80] = {
+    let mut t: [Option<char>; 0x80] = [None; 0x80];
+
+    t[0x02] = Some('!');
+    t[0x03] = Some('"');
+    t[0x04] = Some('§');
+    t[0x05] = Some('$');
+    t[0x06] = Some('%');
+    t[0x07] = Some('&');
+    t[0x08] = Some('/');
+    t[0x09] = Some('(');
+    t[0x0A] = Some(')');
+    t[0x0B] = Some('=');
+    t[0x0C] = Some('?');
+    t[0x0D] = Some('`');
+
+    t[0x10] = Some('Q');  t[0x11] = Some('W');  t[0x12] = Some('E');
+    t[0x13] = Some('R');  t[0x14] = Some('T');
+    t[0x15] = Some('Z');
+    t[0x16] = Some('U');  t[0x17] = Some('I');  t[0x18] = Some('O');
+    t[0x19] = Some('P');
+    t[0x1A] = Some('Ü');
+    t[0x1B] = Some('*');
+
+    t[0x1E] = Some('A');  t[0x1F] = Some('S');  t[0x20] = Some('D');
+    t[0x21] = Some('F');  t[0x22] = Some('G');  t[0x23] = Some('H');
+    t[0x24] = Some('J');  t[0x25] = Some('K');  t[0x26] = Some('L');
+    t[0x27] = Some('Ö');
+    t[0x28] = Some('Ä');
+    t[0x2B] = Some('\'');
+
+    t[0x2C] = Some('Y');
+    t[0x2D] = Some('X');  t[0x2E] = Some('C');  t[0x2F] = Some('V');
+    t[0x30] = Some('B');  t[0x31] = Some('N');  t[0x32] = Some('M');
+    t[0x33] = Some(';');  t[0x34] = Some(':');
+    t[0x35] = Some('_');
+
+    t[0x0E] = Some('\x08');
+    t[0x0F] = Some('\t');
+    t[0x1C] = Some('\n');
+    t[0x39] = Some(' ');
+
+    t
+};
+
+const SCANCODE_TO_ASCII_DE_ALTGR: [Option<char>; 0x80] = {
+    let mut t: [Option<char>; 0x80] = [None; 0x80];
+
+    t[0x03] = Some('²'); // ² (AltGr+2)
+    t[0x04] = Some('³'); // ³ (AltGr+3)
+    t[0x08] = Some('{');    // AltGr+7
+    t[0x09] = Some('[');    // AltGr+8
+    t[0x0A] = Some(']');    // AltGr+9
+    t[0x0B] = Some('}');    // AltGr+0
+    t[0x0C] = Some('\\');   // AltGr+ß → backslash
+    t[0x12] = Some('€');    // AltGr+E → €
+    t[0x19] = Some('|');    // AltGr+P → |  (on many DE keyboards AltGr+< but P works too)
+    t[0x1B] = Some('~');    // AltGr++ → ~
+    t[0x10] = Some('@');    // AltGr+Q → @
+
+    t
+};
+

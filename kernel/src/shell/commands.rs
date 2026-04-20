@@ -31,6 +31,31 @@ fn cmd_halt(_args: &[&str]) -> CommandResult {
     CommandResult::Halt
 }
 
+fn cmd_keymap(args: &[&str]) -> CommandResult {
+    match args.first().copied() {
+        Some("en") => {
+            crate::keyboard::set_layout(crate::keyboard::Layout::En);
+            crate::println!("Keyboard layout set to EN (US QWERTY)");
+        }
+        Some("de") => {
+            crate::keyboard::set_layout(crate::keyboard::Layout::De);
+            crate::println!("Keyboard layout set to DE (German QWERTZ)");
+        }
+        Some(other) => {
+            crate::println!("Unknown layout '{}'. Supported layouts: en, de", other);
+        }
+        None => {
+            let name = match crate::keyboard::get_layout() {
+                crate::keyboard::Layout::En => "en (US QWERTY)",
+                crate::keyboard::Layout::De => "de (German QWERTZ)",
+            };
+            crate::println!("Current keyboard layout: {}", name);
+            crate::println!("Usage: keymap <en|de>");
+        }
+    }
+    CommandResult::Continue
+}
+
 // ── Command registry ──────────────────────────────────────────────────────────
 
 /// All built-in commands recognised by the shell.
@@ -56,5 +81,10 @@ pub static COMMANDS: &[Command] = &[
         name: "halt",
         description: "Halt the system",
         handler: cmd_halt,
+    },
+    Command {
+        name: "keymap",
+        description: "Get or set the keyboard layout (en, de)",
+        handler: cmd_keymap,
     },
 ];

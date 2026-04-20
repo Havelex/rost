@@ -6,8 +6,8 @@ use command::CommandResult;
 use input_buffer::InputBuffer;
 
 /// Blink period: number of timer ticks between cursor toggles.
-/// The PIT fires at ~100 Hz (10 ms / tick), so 50 ticks ≈ 500 ms.
-const BLINK_TICKS: usize = 50;
+/// The PIT fires at ~100 Hz (10 ms / tick), so 75 ticks ≈ 750 ms.
+const BLINK_TICKS: usize = 75;
 
 /// Wait for the next key-press while blinking the cursor at the current
 /// console position.
