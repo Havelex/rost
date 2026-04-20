@@ -397,6 +397,7 @@ const SCANCODE_TO_ASCII_DE: [Option<char>; 0x80] = {
     t[0x30] = Some('b');  t[0x31] = Some('n');  t[0x32] = Some('m');
     t[0x33] = Some(',');  t[0x34] = Some('.');
     t[0x35] = Some('-');
+    t[0x56] = Some('<');  // Extra key (left of Y on DE keyboard)
 
     t[0x0E] = Some('\x08'); // Backspace
     t[0x0F] = Some('\t');   // Tab
@@ -442,6 +443,7 @@ const SCANCODE_TO_ASCII_DE_SHIFTED: [Option<char>; 0x80] = {
     t[0x30] = Some('B');  t[0x31] = Some('N');  t[0x32] = Some('M');
     t[0x33] = Some(';');  t[0x34] = Some(':');
     t[0x35] = Some('_');
+    t[0x56] = Some('>');  // Extra key shifted
 
     t[0x0E] = Some('\x08');
     t[0x0F] = Some('\t');
@@ -462,7 +464,7 @@ const SCANCODE_TO_ASCII_DE_ALTGR: [Option<char>; 0x80] = {
     t[0x0B] = Some('}');    // AltGr+0
     t[0x0C] = Some('\\');   // AltGr+ß → backslash
     t[0x12] = Some('€');    // AltGr+E → €
-    t[0x19] = Some('|');    // AltGr+P → |  (on many DE keyboards AltGr+< but P works too)
+    t[0x56] = Some('|');    // AltGr+< → | (the extra key left of Z on DE keyboards)
     t[0x1B] = Some('~');    // AltGr++ → ~
     t[0x10] = Some('@');    // AltGr+Q → @
 
