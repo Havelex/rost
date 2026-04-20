@@ -63,7 +63,34 @@ pub fn run() {
             // Enter – execute the current line.
             Some('\n') => {
                 crate::println!();
-                let result = command::dispatch(commands::COMMANDS, buf.as_str().trim());
+                let line = buf.as_str().trim();
+
+                // ── Output redirection: detect `cmd [args] > filename` ────────
+                let result = if let Some(redir_pos) = line.find('>') {
+                    let cmd_part = line[..redir_pos].trim();
+                    let file_part = line[redir_pos + 1..].trim();
+
+                    if file_part.is_empty() {
+                        // Bare `>` with no filename – treat as normal command.
+                        command::dispatch(commands::COMMANDS, line)
+                    } else {
+                        // Capture command output then write it to the file.
+                        crate::console::writer::start_capture();
+                        let r = command::dispatch(commands::COMMANDS, cmd_part);
+                        let mut cap = [0u8; crate::vfs::MAX_FILE_CONTENT];
+                        let len = crate::console::writer::take_capture(&mut cap);
+                        let mut vfs = crate::vfs::VFS.lock();
+                        if let Err(e) = vfs.write_file(file_part, &cap[..len]) {
+                            drop(vfs);
+                            crate::println!("redirect: {}: {}", file_part, e.as_str());
+                        }
+                        r
+                    }
+                } else {
+                    command::dispatch(commands::COMMANDS, line)
+                };
+                // ── End redirection ───────────────────────────────────────────
+
                 buf.clear();
                 if let CommandResult::Halt = result {
                     break;
