@@ -52,9 +52,18 @@ fn wait_key_blink() -> crate::keyboard::KeyPress {
 /// Returns normally when the user runs a command that signals
 /// [`CommandResult::Halt`] (e.g. `halt`).  The caller is then responsible for
 /// halting the CPU.
+/// Print the shell prompt: `<cwd> > `.
+fn print_prompt() {
+    let vfs = crate::vfs::VFS.lock();
+    let (buf, len) = vfs.pwd();
+    drop(vfs);
+    let path = core::str::from_utf8(&buf[..len]).unwrap_or("/");
+    crate::print!("{} > ", path);
+}
+
 pub fn run() {
     let mut buf = InputBuffer::new();
-    crate::print!("> ");
+    print_prompt();
 
     loop {
         let key = wait_key_blink();
@@ -95,7 +104,7 @@ pub fn run() {
                 if let CommandResult::Halt = result {
                     break;
                 }
-                crate::print!("> ");
+                print_prompt();
             }
 
             // Backspace – remove the last character from the buffer and
