@@ -49,6 +49,30 @@ impl Console {
         }
     }
 
+    pub fn draw_cursor(&mut self) {
+        if let Some(ref mut fb) = self.fb {
+            for row in 0..16usize {
+                for col in 0..8usize {
+                    fb.write_pixel(self.cursor_x * 8 + col, self.cursor_y * 16 + row, self.color);
+                }
+            }
+        }
+    }
+
+    pub fn erase_cursor(&mut self) {
+        if let Some(ref mut fb) = self.fb {
+            for row in 0..16usize {
+                for col in 0..8usize {
+                    fb.write_pixel(
+                        self.cursor_x * 8 + col,
+                        self.cursor_y * 16 + row,
+                        self.bg_color,
+                    );
+                }
+            }
+        }
+    }
+
     pub fn clear(&mut self) {
         if let Some(ref mut fb) = self.fb {
             fb.clear(self.bg_color);

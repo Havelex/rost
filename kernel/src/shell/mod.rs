@@ -5,6 +5,45 @@ mod input_buffer;
 use command::CommandResult;
 use input_buffer::InputBuffer;
 
+/// Blink period: number of timer ticks between cursor toggles.
+/// The PIT fires at ~100 Hz (10 ms / tick), so 50 ticks ≈ 500 ms.
+const BLINK_TICKS: usize = 50;
+
+/// Wait for the next key-press while blinking the cursor at the current
+/// console position.
+///
+/// The cursor is always hidden when this function returns so the caller can
+/// write a character without leaving cursor artefacts.
+fn wait_key_blink() -> crate::keyboard::KeyPress {
+    let mut visible = true;
+    draw_cursor!();
+    let mut last_blink = crate::time::get_ticks();
+
+    loop {
+        if let Some(key) = crate::keyboard::try_read_keypress() {
+            if visible {
+                erase_cursor!();
+            }
+            return key;
+        }
+
+        let now = crate::time::get_ticks();
+        if now.wrapping_sub(last_blink) >= BLINK_TICKS {
+            last_blink = now;
+            if visible {
+                erase_cursor!();
+                visible = false;
+            } else {
+                draw_cursor!();
+                visible = true;
+            }
+        }
+
+        // Yield CPU until the next interrupt (timer or keyboard).
+        unsafe { core::arch::asm!("hlt", options(nomem, nostack)) };
+    }
+}
+
 /// Run the interactive shell until a command requests a halt.
 ///
 /// Reads key-presses from the keyboard, echoes printable characters, handles
@@ -18,7 +57,7 @@ pub fn run() {
     crate::print!("> ");
 
     loop {
-        let key = crate::wait_for_key!();
+        let key = wait_key_blink();
 
         match key.ascii {
             // Enter – execute the current line.

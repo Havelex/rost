@@ -21,3 +21,17 @@ macro_rules! cls {
         $crate::console::writer::console().lock().clear()
     };
 }
+
+#[macro_export]
+macro_rules! draw_cursor {
+    () => {
+        $crate::console::writer::console().lock().draw_cursor()
+    };
+}
+
+#[macro_export]
+macro_rules! erase_cursor {
+    () => {
+        $crate::console::writer::console().lock().erase_cursor()
+    };
+}
