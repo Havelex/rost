@@ -2,6 +2,7 @@ use core::panic::PanicInfo;
 
 use crate::memory::{alloc::MemoryFault, paging::PageFault};
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub enum KernelFault {
     Memory(MemoryFault),

@@ -1,9 +1,12 @@
+#[allow(dead_code)]
 pub const FONT_WIDTH: usize = 8;
 pub const FONT_HEIGHT: usize = 16;
+#[allow(dead_code)]
 pub const GLYPH_SIZE: usize = FONT_HEIGHT;
 
 pub static FONT: &[u8] = include_bytes!("../../res/fonts/default8x16.psf");
 
+#[allow(dead_code)]
 pub const PSF1_HEADER_SIZE: usize = 4;
 
 pub fn glyph(c: char) -> &'static [u8] {

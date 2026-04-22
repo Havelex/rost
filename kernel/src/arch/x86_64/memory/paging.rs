@@ -43,6 +43,7 @@ bitflags! {
 pub struct PageTableEntry(u64);
 
 impl PageTableEntry {
+    #[allow(dead_code)]
     pub const fn empty() -> Self {
         Self(0)
     }
@@ -70,6 +71,7 @@ pub struct PageTable {
 }
 
 impl PageTable {
+    #[allow(dead_code)]
     pub const fn new() -> Self {
         Self {
             entries: [PageTableEntry::empty(); TABLE_ENTRIES],

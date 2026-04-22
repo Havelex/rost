@@ -31,6 +31,7 @@ impl Cpu for X86Cpu {
 }
 
 pub trait X86CpuExt {
+    #[allow(dead_code)]
     fn read_cr2() -> usize;
     fn enable_sse();
 }

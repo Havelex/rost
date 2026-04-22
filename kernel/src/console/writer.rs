@@ -1,8 +1,5 @@
 use crate::console::{font, framebuffer::Framebuffer};
-use core::{
-    ffi::c_longlong,
-    fmt::{self, Write},
-};
+use core::fmt::{self, Write};
 use spin::{Mutex, Once};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -47,6 +44,7 @@ impl Console {
         }
     }
 
+    #[allow(dead_code)]
     pub const fn empty() -> Self {
         Self {
             fb: None,

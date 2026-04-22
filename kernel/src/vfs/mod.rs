@@ -391,6 +391,7 @@ impl Vfs {
     }
 
     /// Return the inode index of the current working directory.
+    #[allow(dead_code)]
     pub fn cwd(&self) -> usize {
         self.cwd
     }

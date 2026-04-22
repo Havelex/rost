@@ -32,6 +32,7 @@ pub trait Architecture {
     fn init_drivers() -> Result<()>;
 
     // getter
+    #[allow(dead_code)]
     fn mapper() -> &'static Mutex<Self::Mapper>;
 
     fn enable_interrupts();
