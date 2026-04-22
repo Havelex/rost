@@ -31,6 +31,10 @@ pub(crate) mod shell;
 pub(crate) mod time;
 pub(crate) mod vfs;
 
+/// Collects boot information from the bootloader and returns it as a [`BootInfo`](boot::BootInfo).
+///
+/// This is a thin re-export of [`boot::init`](boot::init) and is the first function called by
+/// the architecture-specific entry point before handing control to [`init`].
 pub use boot::init as boot;
 
 /// Initializes the kernel with the provided boot information.

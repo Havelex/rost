@@ -20,6 +20,10 @@ mod memory;
 pub mod msr;
 mod tss;
 
+/// Zero-sized marker type that implements [`Architecture`] for the x86_64 target.
+///
+/// All methods are called as associated functions (no `self` receiver); the
+/// struct itself is never instantiated at runtime.
 pub struct X86_64;
 
 /// Boot parameters stored globally so that `init_memory` can read them without

@@ -2,6 +2,10 @@ use crate::cpu::Cpu;
 
 pub mod interrupts;
 
+/// Zero-sized struct that implements [`Cpu`] for the x86_64 architecture.
+///
+/// All methods are associated functions (no `self` receiver) and delegate
+/// directly to inline assembly instructions.
 pub struct X86Cpu;
 
 impl Cpu for X86Cpu {
@@ -30,9 +34,23 @@ impl Cpu for X86Cpu {
     }
 }
 
+/// Extended CPU operations specific to the x86_64 architecture.
+///
+/// This trait supplements [`Cpu`] with x86_64-only functionality that is not
+/// part of the portable [`Cpu`] interface.
 pub trait X86CpuExt {
+    /// Read the value of the CR2 register (the faulting virtual address after a page fault).
+    ///
+    /// # Returns
+    /// The current value of CR2 as a `usize`.
     #[allow(dead_code)]
     fn read_cr2() -> usize;
+
+    /// Enable SSE and SSE2 instructions by setting the required control-register bits.
+    ///
+    /// Must be called in [`init_early`](crate::arch::Architecture::init_early) before any
+    /// code that may emit SSE instructions runs (the Rust compiler may generate SSE
+    /// instructions when zeroing or copying large structures).
     fn enable_sse();
 }
 
