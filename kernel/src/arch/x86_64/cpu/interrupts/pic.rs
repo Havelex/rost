@@ -20,7 +20,9 @@ pub const IRQ_PIT_TIMER: u8 = 0;
 pub const IRQ_KEYBOARD: u8 = 1;
 pub const IRQ_CASCADE: u8 = 2;
 
+#[allow(dead_code)]
 const PIC_READ_IRR: u8 = 0x0a;
+#[allow(dead_code)]
 const PIC_READ_ISR: u8 = 0x0b;
 
 /// Wait for a small amount of time for IO ports to settle
@@ -57,6 +59,7 @@ unsafe fn remap_pic(offset1: u8, offset2: u8) {
 }
 
 /// Mask (disable) a specific IRQ line
+#[allow(dead_code)]
 pub fn set_mask(mut irq_line: u8) {
     let port = if irq_line < 8 {
         PIC1_DATA
@@ -103,6 +106,7 @@ pub fn send_eoi(irq: u8) {
 
 // ... rest of your register reading functions remain the same ...
 
+#[allow(dead_code)]
 unsafe fn pic_get_irq_reg(ocw3: u8) -> u16 {
     unsafe {
         outb(PIC1_COMMAND, ocw3);
@@ -114,11 +118,13 @@ unsafe fn pic_get_irq_reg(ocw3: u8) -> u16 {
     ((unsafe { inb(PIC2_COMMAND) } as u16) << 8) | (unsafe { inb(PIC1_COMMAND) } as u16)
 }
 
+#[allow(dead_code)]
 #[inline]
 pub unsafe fn pic_get_irr() -> u16 {
     unsafe { pic_get_irq_reg(PIC_READ_IRR) }
 }
 
+#[allow(dead_code)]
 #[inline]
 pub unsafe fn pic_get_isr() -> u16 {
     unsafe { pic_get_irq_reg(PIC_READ_ISR) }

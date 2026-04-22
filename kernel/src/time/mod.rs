@@ -12,11 +12,13 @@ pub fn get_ticks() -> usize {
 }
 
 /// Returns the current timer tick count.
+#[allow(dead_code)]
 pub fn timer_ticks() -> usize {
     TICKS.load(Ordering::Relaxed)
 }
 
 /// Resets the timer tick counter to zero.
+#[allow(dead_code)]
 pub fn reset_timer_ticks() {
     TICKS.store(0, Ordering::Relaxed);
 }

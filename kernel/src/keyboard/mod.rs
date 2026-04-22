@@ -53,6 +53,7 @@ pub struct Modifiers {
 }
 
 /// A decoded key-press event.
+#[allow(dead_code)]
 pub struct KeyPress {
     /// Raw scancode received from the PS/2 controller.
     pub scancode: u8,
@@ -65,6 +66,7 @@ pub struct KeyPress {
 }
 
 /// A keyboard event (press or release).
+#[allow(dead_code)]
 pub enum KeyEvent {
     /// A key was pressed; carries the decoded information.
     Pressed(KeyPress),
@@ -120,17 +122,20 @@ pub fn push_scancode(scancode: u8) {
 // ── Enable / disable ──────────────────────────────────────────────────────────
 
 /// Enable keyboard input. Scancodes from IRQ 1 will be stored in the buffer.
+#[allow(dead_code)]
 pub fn enable() {
     KEYBOARD_ENABLED.store(true, Ordering::Release);
 }
 
 /// Disable keyboard input. Scancodes from IRQ 1 are discarded until [`enable`]
 /// is called. Any scancode already in the buffer is left untouched.
+#[allow(dead_code)]
 pub fn disable() {
     KEYBOARD_ENABLED.store(false, Ordering::Release);
 }
 
 /// Returns `true` if the keyboard is currently enabled.
+#[allow(dead_code)]
 pub fn is_enabled() -> bool {
     KEYBOARD_ENABLED.load(Ordering::Acquire)
 }
@@ -144,6 +149,7 @@ pub fn is_key_pressed(scancode: u8) -> bool {
 }
 
 /// Returns `true` if bit 7 of `scancode` is 1 (key released).
+#[allow(dead_code)]
 #[inline]
 pub fn is_key_released(scancode: u8) -> bool {
     scancode & 0x80 != 0
@@ -153,6 +159,7 @@ pub fn is_key_released(scancode: u8) -> bool {
 
 /// Returns the ASCII character for a press scancode given the active modifiers,
 /// or `None` for non-printable / modifier keys.
+#[allow(dead_code)]
 pub fn get_ascii(scancode: u8) -> Option<char> {
     get_ascii_with_mods(scancode, false, false)
 }
@@ -191,6 +198,7 @@ pub fn get_ascii_with_mods(scancode: u8, shift: bool, altgr: bool) -> Option<cha
 
 /// Print the character representation of `scancode` to the console.
 /// Should only be called from non-interrupt context.
+#[allow(dead_code)]
 pub fn print_key(scancode: u8) {
     if let Some(c) = get_ascii(scancode) {
         crate::print!("{}", c);
@@ -235,6 +243,7 @@ pub fn try_read_keypress() -> Option<KeyPress> {
 /// IRQ (and any other interrupt) will wake the CPU efficiently.
 ///
 /// Returns a [`KeyPress`] describing the pressed key.
+#[allow(dead_code)]
 pub fn wait_for_keypress() -> KeyPress {
     loop {
         if let Some(kp) = try_read_keypress() {

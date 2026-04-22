@@ -2,6 +2,7 @@ use crate::panic::KernelFault;
 
 pub const FRAME_SIZE: usize = 0x1000;
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub enum MemoryFault {
     FrameIndexOutOfBounds { idx: usize, max: usize },
@@ -68,6 +69,7 @@ impl FrameAllocator {
         }
     }
 
+    #[allow(dead_code)]
     pub fn reserve(&mut self, frame: Frame) -> Result<(), MemoryFault> {
         self.mark_used(frame.index())
     }
@@ -94,6 +96,7 @@ impl FrameAllocator {
         Err(MemoryFault::OutOfMemory)
     }
 
+    #[allow(dead_code)]
     pub fn free(&mut self, frame: Frame) -> Result<(), MemoryFault> {
         self.mark_free(frame.index())
     }
@@ -124,6 +127,7 @@ impl FrameAllocator {
         Ok(())
     }
 
+    #[allow(dead_code)]
     fn mark_free(&mut self, idx: usize) -> Result<(), MemoryFault> {
         if idx >= self.total_frames {
             return Err(MemoryFault::FrameIndexOutOfBounds {

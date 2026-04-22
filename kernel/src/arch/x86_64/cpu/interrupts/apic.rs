@@ -68,7 +68,7 @@ const XAPIC_ID_SHIFT: u32 = 24;
 /// CPUID leaf 1 is guaranteed to exist on all x86_64 CPUs per the AMD64
 /// and Intel 64 architecture specifications.
 pub fn has_apic() -> bool {
-    let res = unsafe { core::arch::x86_64::__cpuid(1) };
+    let res = core::arch::x86_64::__cpuid(1);
     (res.edx & (1 << 9)) != 0
 }
 
@@ -77,7 +77,7 @@ pub fn has_apic() -> bool {
 /// CPUID leaf 1 is guaranteed to exist on all x86_64 CPUs per the AMD64
 /// and Intel 64 architecture specifications.
 pub fn has_x2apic() -> bool {
-    let res = unsafe { core::arch::x86_64::__cpuid(1) };
+    let res = core::arch::x86_64::__cpuid(1);
     (res.ecx & (1 << 21)) != 0
 }
 

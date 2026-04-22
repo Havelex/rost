@@ -5,6 +5,7 @@ use crate::{
 
 pub const PAGE_SIZE: usize = 0x1000;
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub enum PageFault {
     AlreadyMapped,
@@ -31,6 +32,7 @@ impl Page {
         self.0
     }
 
+    #[allow(dead_code)]
     pub const fn index(self) -> usize {
         self.0 / PAGE_SIZE
     }
@@ -41,5 +43,6 @@ pub trait Mapper {
 
     fn map(&mut self, page: Page, frame: Frame, flags: Self::PageFlags) -> Result<(), KernelFault>;
 
+    #[allow(dead_code)]
     fn unmap(&mut self, page: Page) -> Result<(), PageFault>;
 }
