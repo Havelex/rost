@@ -1,7 +1,16 @@
+//! Allocator for memory frames in a simple kernel.
+//!
+//! A simple frame allocator that uses a bitmap to track allocated and free frames of memory.
+//! This is a very basic implementation and is not optimized for performance or fragmentation.
+//! It is intended for use in a simple kernel where memory management is not a primary concern,
+//! and is designed to be easy to understand and modify for educational purposes.
+
 use crate::panic::KernelFault;
 
+/// Size of a memory frame in bytes.  This is typically the same as the page size
 pub const FRAME_SIZE: usize = 0x1000;
 
+/// Enum representing various memory allocation faults that can occur in the frame allocator.
 #[allow(dead_code)]
 #[derive(Debug)]
 pub enum MemoryFault {
@@ -18,22 +27,45 @@ impl From<MemoryFault> for KernelFault {
     }
 }
 
+/// Represents a memory frame, which is a contiguous block of memory of size FRAME_SIZE.
 #[derive(Clone, Copy, Debug)]
 pub struct Frame(usize);
 
 impl Frame {
+    /// Creates a new Frame from a given address, aligning it down to the nearest frame boundary.
+    ///
+    /// # Parameters
+    /// - `addr`: The address to create the frame from.
+    ///
+    /// # Returns
+    /// A new `Frame` instance representing the frame containing the given address.
     pub const fn new(addr: usize) -> Self {
         Self(addr & !(FRAME_SIZE - 1))
     }
 
+    /// Creates a Frame from a given frame index.
+    ///
+    /// # Parameters
+    /// - `idx`: The index of the frame to create.
+    ///
+    /// # Returns
+    /// A new `Frame` instance representing the frame at the specified index.
     pub const fn from_index(idx: usize) -> Self {
         Self(idx * FRAME_SIZE)
     }
 
+    /// Returns the starting address of the frame.
+    ///
+    /// # Returns
+    /// The starting address of the frame as a `usize`.
     pub const fn addr(self) -> usize {
         self.0
     }
 
+    /// Returns the index of the frame.
+    ///
+    /// # Returns
+    /// The index of the frame as a `usize`.
     pub const fn index(self) -> usize {
         self.0 / FRAME_SIZE
     }

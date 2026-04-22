@@ -1,4 +1,3 @@
-/// Maximum number of whitespace-separated tokens parsed from a single line.
 const MAX_ARGS: usize = 16;
 
 /// Outcome returned by every command handler.
@@ -22,8 +21,13 @@ pub struct Command {
 /// Parse `line` into tokens, look up the first token in `commands`, and
 /// execute the matching handler.
 ///
-/// Returns [`CommandResult::Continue`] for unknown commands (after printing an
-/// error) and for empty lines.
+/// # Parameters
+/// - `commands`: List of available commands.
+/// - `line`: User input line to parse and execute.
+///
+/// # Returns
+/// - `CommandResult::Continue` to keep the shell running and show the next prompt.
+/// - `CommandResult::Halt` to exit the shell loop (e.g. the `halt` command).
 pub fn dispatch(commands: &[Command], line: &str) -> CommandResult {
     // argv is initialised to empty strings; only indices 0..argc are valid and
     // are the only indices ever read below.

@@ -1,3 +1,6 @@
+//! Timer module for the operating system. Provides functionality for tracking system ticks and
+//! sleeping.
+
 use core::sync::atomic::{AtomicUsize, Ordering};
 
 static TICKS: AtomicUsize = AtomicUsize::new(0);
@@ -11,7 +14,10 @@ pub fn get_ticks() -> usize {
     TICKS.load(Ordering::Relaxed)
 }
 
-/// Returns the current timer tick count.
+/// Retrieves the current tick count. This is a wrapper around the atomic load operation.
+///
+/// # Returns
+/// - The current number of ticks since the system started.
 #[allow(dead_code)]
 pub fn timer_ticks() -> usize {
     TICKS.load(Ordering::Relaxed)
@@ -23,6 +29,10 @@ pub fn reset_timer_ticks() {
     TICKS.store(0, Ordering::Relaxed);
 }
 
+/// Sleeps for the specified number of milliseconds by busy-waiting on the tick count.
+///
+/// # Parameters
+/// - `ms`: The number of milliseconds to sleep.
 pub fn sleep(ms: usize) {
     let start_ticks = get_ticks();
     let ticks_to_wait = ms / 10;

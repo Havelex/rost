@@ -1,4 +1,3 @@
-/// Maximum number of bytes that a single input line may contain.
 const BUFFER_SIZE: usize = 256;
 
 /// A fixed-size buffer that accumulates typed characters for one shell line.
@@ -11,6 +10,7 @@ pub struct InputBuffer {
 }
 
 impl InputBuffer {
+    /// Create a new, empty input buffer.
     pub const fn new() -> Self {
         Self {
             buf: [0u8; BUFFER_SIZE],
@@ -20,8 +20,12 @@ impl InputBuffer {
 
     /// Append a printable ASCII character to the buffer.
     ///
-    /// Returns `true` when the character was accepted, `false` if the buffer
-    /// was already full.
+    /// # Parameters
+    /// - `c`: The character to append.  Only ASCII characters (0x20 to 0x7E) are accepted.
+    ///
+    /// # Returns
+    /// - `true` if the character was successfully added to the buffer.
+    /// - `false` if the buffer is full and the character was not added.
     pub fn push(&mut self, c: char) -> bool {
         if self.len < BUFFER_SIZE {
             self.buf[self.len] = c as u8;
@@ -34,8 +38,9 @@ impl InputBuffer {
 
     /// Remove the last character from the buffer (backspace).
     ///
-    /// Returns `true` if a character was removed, `false` if the buffer was
-    /// already empty.
+    /// # Returns
+    /// - `true` if a character was removed from the buffer.
+    /// - `false` if the buffer was already empty and no character was removed.
     pub fn backspace(&mut self) -> bool {
         if self.len > 0 {
             self.len -= 1;
@@ -51,6 +56,9 @@ impl InputBuffer {
     }
 
     /// View the current buffer contents as a string slice.
+    ///
+    /// # Returns
+    /// A string slice `&str` containing the characters currently in the buffer.
     pub fn as_str(&self) -> &str {
         // Safety: only ASCII bytes are ever written into the buffer.
         core::str::from_utf8(&self.buf[..self.len]).unwrap_or("")

@@ -1,4 +1,7 @@
 #![no_std]
+#![deny(missing_docs)]
+
+//! The main kernel library, containing all the core logic and functionality of the kernel.
 
 use crate::{
     arch::{Arch, Architecture},
@@ -30,6 +33,12 @@ pub(crate) mod vfs;
 
 pub use boot::init as boot;
 
+/// Initializes the kernel with the provided boot information.
+/// This function is called by the architecture-specific boot code after the initial setup is
+/// complete.
+///
+/// # Parameters
+/// - `info`: The boot information provided by the bootloader.
 pub fn init(info: BootInfo) -> ! {
     let fb_info = info.framebuffer.unwrap();
 
@@ -115,6 +124,16 @@ pub fn init(info: BootInfo) -> ! {
     }
 }
 
+/// Helper function to initialize a boot step with logging and error handling.
+///
+/// # Parameters
+/// - `name`: The name of the boot step, used for logging.
+/// - `succ`: The success message to log if the step completes successfully.
+/// - `f`: The function that performs the boot step, returning a `Result`.
+///
+/// # Returns
+/// - `Ok(T)` if the boot step completes successfully, or panics if it fails.
+/// - 'Err(KernelError)` if the boot step fails, which will be logged and cause a kernel panic.'
 pub fn init_step<T, F>(name: &'static str, succ: &'static str, f: F) -> Result<T>
 where
     F: FnOnce() -> Result<T>,

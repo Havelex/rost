@@ -1,5 +1,5 @@
 use crate::shell::command::{Command, CommandResult};
-use crate::vfs::{InodeKind, VfsError, VFS};
+use crate::vfs::{InodeKind, VFS, VfsError};
 
 // ── Built-in handlers ─────────────────────────────────────────────────────────
 
@@ -92,7 +92,12 @@ fn cmd_ls(args: &[&str]) -> CommandResult {
         } else {
             '-'
         };
-        crate::println!("{} {:6} {}", kind_char, child.display_size(), child.name_str());
+        crate::println!(
+            "{} {:6} {}",
+            kind_char,
+            child.display_size(),
+            child.name_str()
+        );
     }
 
     CommandResult::Continue

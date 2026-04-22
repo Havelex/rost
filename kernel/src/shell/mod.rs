@@ -1,3 +1,5 @@
+//! Command line interface for the shell. Handles input, editing, and command execution.
+
 mod command;
 mod commands;
 mod input_buffer;
@@ -5,15 +7,8 @@ mod input_buffer;
 use command::CommandResult;
 use input_buffer::InputBuffer;
 
-/// Blink period: number of timer ticks between cursor toggles.
-/// The PIT fires at ~100 Hz (10 ms / tick), so 75 ticks ≈ 750 ms.
 const BLINK_TICKS: usize = 75;
 
-/// Wait for the next key-press while blinking the cursor at the current
-/// console position.
-///
-/// The cursor is always hidden when this function returns so the caller can
-/// write a character without leaving cursor artefacts.
 fn wait_key_blink() -> crate::keyboard::KeyPress {
     let mut visible = true;
     draw_cursor!();
@@ -44,15 +39,6 @@ fn wait_key_blink() -> crate::keyboard::KeyPress {
     }
 }
 
-/// Run the interactive shell until a command requests a halt.
-///
-/// Reads key-presses from the keyboard, echoes printable characters, handles
-/// backspace, and executes commands when the user presses Enter.
-///
-/// Returns normally when the user runs a command that signals
-/// [`CommandResult::Halt`] (e.g. `halt`).  The caller is then responsible for
-/// halting the CPU.
-/// Print the shell prompt: `<cwd> > `.
 fn print_prompt() {
     let vfs = crate::vfs::VFS.lock();
     let (buf, len) = vfs.pwd();
@@ -61,7 +47,6 @@ fn print_prompt() {
     crate::print!("{} > ", path);
 }
 
-/// Execute a single command segment, handling output redirection if present.
 fn run_one(segment: &str) -> CommandResult {
     if let Some(redir_pos) = segment.find('>') {
         let cmd_part = segment[..redir_pos].trim();
@@ -88,6 +73,7 @@ fn run_one(segment: &str) -> CommandResult {
     }
 }
 
+/// Main loop for the command line interface. Reads input, handles editing, and executes commands.
 pub fn run() {
     let mut buf = InputBuffer::new();
     print_prompt();

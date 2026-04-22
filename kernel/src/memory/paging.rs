@@ -1,10 +1,16 @@
+//! Paging management.
+//!
+//! This module provides the `Mapper` trait for mapping and unmapping pages to frames, as well as
+//! the `Page` struct for representing pages and the `PageFault` enum for handling paging errors.
+
 use crate::{
     memory::alloc::{Frame, MemoryFault},
     panic::KernelFault,
 };
 
-pub const PAGE_SIZE: usize = 0x1000;
+const PAGE_SIZE: usize = 0x1000;
 
+/// Enum representing various page faults that can occur during paging operations.
 #[allow(dead_code)]
 #[derive(Debug)]
 pub enum PageFault {

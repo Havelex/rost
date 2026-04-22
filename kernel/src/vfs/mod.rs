@@ -21,6 +21,7 @@ pub const MAX_PATH_LEN: usize = 512;
 
 // ── Error type ────────────────────────────────────────────────────────────────
 
+/// Enum representing possible errors from VFS operations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VfsError {
     NotFound,
@@ -34,6 +35,7 @@ pub enum VfsError {
 }
 
 impl VfsError {
+    /// Return a human-readable error message per `VfsError`.
     pub fn as_str(self) -> &'static str {
         match self {
             VfsError::NotFound => "no such file or directory",
@@ -50,6 +52,7 @@ impl VfsError {
 
 // ── Inode ─────────────────────────────────────────────────────────────────────
 
+/// Specifies the kind of an inode.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum InodeKind {
     Free,
@@ -57,8 +60,10 @@ pub enum InodeKind {
     Directory,
 }
 
+/// Represents an object in the file system.
 #[derive(Clone, Copy)]
 pub struct Inode {
+    /// The kind of this inode (free, file, or directory).
     pub kind: InodeKind,
     /// Name of this entry (not the full path).
     pub name: [u8; MAX_NAME_LEN],
@@ -115,8 +120,8 @@ impl Inode {
 // ── Vfs ───────────────────────────────────────────────────────────────────────
 
 pub struct Vfs {
+    /// The array of all inodes (files and directories) in the file system.
     pub inodes: [Inode; MAX_INODES],
-    /// Inode index of the current working directory.
     cwd: usize,
 }
 
@@ -128,7 +133,8 @@ impl Vfs {
         }
     }
 
-    /// Set up the root directory (inode 0).  Called once at boot.
+    /// Set up the root directory (inode 0).
+    /// Should be called once at boot.
     pub fn init_root(&mut self) {
         let now = crate::time::get_ticks();
         let root = &mut self.inodes[0];
@@ -143,7 +149,6 @@ impl Vfs {
 
     // ── Internal helpers ──────────────────────────────────────────────────────
 
-    /// Scan for the next free inode slot (starting from index 1; 0 = root).
     fn alloc_inode(&mut self) -> Option<usize> {
         for i in 1..MAX_INODES {
             if self.inodes[i].kind == InodeKind::Free {
@@ -153,7 +158,6 @@ impl Vfs {
         None
     }
 
-    /// Find the inode index of a direct child of `dir_idx` named `name`.
     fn find_child(&self, dir_idx: usize, name: &str) -> Option<usize> {
         let dir = &self.inodes[dir_idx];
         for i in 0..dir.child_count {
@@ -165,7 +169,6 @@ impl Vfs {
         None
     }
 
-    /// Append `child_idx` to the children list of `dir_idx`.
     fn add_child(&mut self, dir_idx: usize, child_idx: usize) -> Result<(), VfsError> {
         if self.inodes[dir_idx].child_count >= MAX_CHILDREN {
             return Err(VfsError::DirectoryFull);
@@ -184,6 +187,14 @@ impl Vfs {
     /// Absolute paths (starting with `/`) resolve from the root.
     /// Relative paths resolve from the current working directory.
     /// Both `.` and `..` are handled.
+    ///
+    /// # Parameters
+    /// - `path`: The path to resolve, as a UTF-8 string slice.
+    ///
+    /// # Returns
+    /// - `Ok(usize)`: The index of the inode corresponding to the resolved path
+    /// - `Err(VfsError)`: An error if the path cannot be resolved (e.g., not found, not a
+    /// directory, etc.)
     pub fn resolve_path(&self, path: &str) -> Result<usize, VfsError> {
         if path == "/" {
             return Ok(0);
@@ -211,8 +222,6 @@ impl Vfs {
         Ok(current)
     }
 
-    /// Resolve the parent directory of `path` and return its inode index
-    /// together with the final name component.
     fn resolve_parent<'a>(&self, path: &'a str) -> Result<(usize, &'a str), VfsError> {
         let (dir_part, name) = match path.rfind('/') {
             Some(pos) => {
@@ -244,6 +253,13 @@ impl Vfs {
     ///
     /// If the file already exists the modification timestamp is updated
     /// (POSIX `touch` semantics) and `Ok(())` is returned.
+    ///
+    /// # Parameters
+    /// - `path`: The path of the file to create or update, as a UTF-8 string slice.
+    ///
+    /// # Returns
+    /// - `Ok(())`: The file was successfully created or updated.
+    /// - `Err(VfsError)`: An error if the file cannot be created or updated
     pub fn touch(&mut self, path: &str) -> Result<(), VfsError> {
         let (parent_idx, name) = self.resolve_parent(path)?;
 
@@ -271,7 +287,12 @@ impl Vfs {
 
     /// Create a new directory at `path`.
     ///
-    /// Returns [`VfsError::AlreadyExists`] if the path already exists.
+    /// # Parameters
+    /// - `path`: The path of the directory to create, as a UTF-8 string slice.
+    ///
+    /// # Returns
+    /// - `Ok(())`: The directory was successfully created.
+    /// - `Err(VfsError)`: An error if the directory cannot be created
     pub fn mkdir(&mut self, path: &str) -> Result<(), VfsError> {
         let (parent_idx, name) = self.resolve_parent(path)?;
 
@@ -296,6 +317,13 @@ impl Vfs {
     }
 
     /// Change the current working directory to `path`.
+    ///
+    /// # Parameters
+    /// - `path`: The path of the directory to change to, as a UTF-8 string slice.
+    ///
+    /// # Returns
+    /// - `Ok(())`: The current working directory was successfully changed.
+    /// - `Err(VfsError)`: An error if the directory cannot be changed to the specified path.
     pub fn cd(&mut self, path: &str) -> Result<(), VfsError> {
         let idx = self.resolve_path(path)?;
         if self.inodes[idx].kind != InodeKind::Directory {
@@ -305,8 +333,15 @@ impl Vfs {
         Ok(())
     }
 
-    /// Write `data` as the entire content of the file at `path`,
-    /// creating the file if it does not yet exist.
+    /// Write `data` to the file at `path`, creating it if it doesn't exist.
+    ///
+    /// # Parameters
+    /// - `path`: The path of the file to write to, as a UTF-8 string slice.
+    /// - `data`: The byte slice containing the data to write to the file.
+    ///
+    /// # Returns
+    /// - `Ok(())`: The data was successfully written to the file.
+    /// - `Err(VfsError)`: An error if the file cannot be written to the specified file.
     pub fn write_file(&mut self, path: &str, data: &[u8]) -> Result<(), VfsError> {
         if data.len() > MAX_FILE_CONTENT {
             return Err(VfsError::FileTooLarge);
@@ -334,7 +369,14 @@ impl Vfs {
         Ok(())
     }
 
-    /// Read file content at `path`, returning a slice into the inode's buffer.
+    /// Read the content of the file at `path`.
+    ///
+    /// # Parameters
+    /// - `path`: The path of the file to read from, as a UTF-8 string slice.
+    ///
+    /// # Returns
+    /// - `Ok(&[u8])`: A byte slice containing the content of the file.
+    /// - `Err(VfsError)`: An error if the file cannot be read.
     pub fn read_file(&self, path: &str) -> Result<&[u8], VfsError> {
         let idx = self.resolve_path(path)?;
         let inode = &self.inodes[idx];
@@ -346,7 +388,10 @@ impl Vfs {
 
     /// Return the current working directory as a path string.
     ///
-    /// The path is written into `buf`; the number of bytes written is returned.
+    /// # Returns
+    /// A tuple containing:
+    /// - A byte array of length `MAX_PATH_LEN` containing the path string (UTF-8 encoded, not null-terminated).
+    /// - The actual length of the path string in
     pub fn pwd(&self) -> ([u8; MAX_PATH_LEN], usize) {
         let mut buf = [0u8; MAX_PATH_LEN];
 
