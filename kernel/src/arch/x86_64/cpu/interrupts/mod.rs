@@ -141,7 +141,7 @@ pub fn init() -> Result<()> {
             };
             Ok(())
         },
-    );
+    )?;
 
     init_step("Initializing PIC", "PIC initialized", || {
         pic::init()?;

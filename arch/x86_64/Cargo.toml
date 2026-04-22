@@ -12,5 +12,5 @@ path = "src/main.rs"
 test = false
 bench = false
 
-[build]
-target = "../../targets/x86_64-rost.json"
+# [build]
+# target = "../../targets/x86_64-rost.json"
