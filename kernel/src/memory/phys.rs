@@ -1,3 +1,9 @@
+//! Physical memory initialisation.
+//!
+//! Constructs the global [`FrameAllocator`] from the bootloader memory map,
+//! reserves frame 0 (unmapped in Limine BIOS HHDM), and marks all
+//! non-usable regions so they can never be handed out.
+
 use spin::{Mutex, Once};
 
 use crate::memory::{
@@ -17,10 +23,27 @@ static FRAME_BITMAP: BitmapStorage = BitmapStorage(UnsafeCell::new([0; MAX_BITMA
 
 static FRAME_ALLOCATOR: Once<Mutex<FrameAllocator>> = Once::new();
 
+/// Return a reference to the global [`FrameAllocator`] mutex.
+///
+/// # Returns
+/// - `Ok(&Mutex<FrameAllocator>)` if the allocator has been initialised.
+/// - `Err(MemoryFault::NoAllocator)` if [`init`] has not been called yet.
 pub fn frame_allocator() -> Result<&'static Mutex<FrameAllocator>, MemoryFault> {
     FRAME_ALLOCATOR.get().ok_or(MemoryFault::NoAllocator)
 }
 
+/// Initialise the physical frame allocator from the bootloader memory map.
+///
+/// Sizes the bitmap to cover only RAM regions (usable, reclaimable, and
+/// kernel/modules), reserves physical frame 0 unconditionally, and then
+/// reserves all non-usable regions so they are never handed out.
+///
+/// # Parameters
+/// - `mem_map`: The kernel memory map produced from Limine's memory-map response.
+///
+/// # Returns
+/// - `Ok(())` on success.
+/// - `Err(MemoryFault)` if a frame could not be reserved.
 pub fn init(mem_map: &MemMap) -> Result<(), MemoryFault> {
     // Size the bitmap from allocatable RAM only.  Reserved entries cover MMIO
     // ranges (PCIe BARs at ~0xB0000000, LAPIC at 0xFEE00000, etc.) that can

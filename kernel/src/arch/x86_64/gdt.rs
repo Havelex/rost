@@ -1,3 +1,14 @@
+//! x86_64 Global Descriptor Table (GDT) initialisation.
+//!
+//! Sets up a minimal flat-memory GDT containing:
+//! - Entry 0: null descriptor
+//! - Entry 1: 64-bit kernel code segment (DPL 0)
+//! - Entry 2: 64-bit kernel data segment (DPL 0)
+//! - Entries 3-4: TSS descriptor (128-bit system segment)
+//!
+//! After loading the GDT with `lgdt`, all segment registers are reloaded and
+//! the TSS is installed with `ltr`.
+
 use super::tss;
 use crate::error::Result;
 use core::ptr::addr_of_mut;
@@ -54,6 +65,14 @@ static mut GDT: GdtTable = GdtTable {
 
 static mut GDTR: GdtDescriptor = GdtDescriptor { limit: 0, base: 0 };
 
+/// Initialise and load the GDT, then install the TSS.
+///
+/// Builds the kernel code, kernel data, and TSS descriptors in the static
+/// GDT, executes `lgdt`, reloads all segment registers via a far return,
+/// and executes `ltr` to load the TSS selector.
+///
+/// # Returns
+/// - `Ok(())` on success (currently always succeeds).
 pub fn init() -> Result<()> {
     unsafe {
         let gdt = addr_of_mut!(GDT);

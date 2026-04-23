@@ -1,3 +1,12 @@
+//! Stateful console writer backed by a linear framebuffer.
+//!
+//! Maintains cursor position, foreground/background colour, an ANSI-escape
+//! state machine, and an optional output-capture buffer used by the shell's
+//! `>` redirection operator.
+//!
+//! The single global [`Console`] instance is stored in [`CONSOLE`] and
+//! accessed through [`console()`].
+
 use crate::console::{font, framebuffer::Framebuffer};
 use core::fmt::{self, Write};
 use spin::{Mutex, Once};
@@ -14,6 +23,12 @@ enum AnsiState {
 /// Maximum number of bytes that can be captured in a single redirection.
 const CAPTURE_BUF_SIZE: usize = 4096;
 
+/// The kernel text console.
+///
+/// Renders characters to a linear framebuffer using the embedded PSF bitmap
+/// font.  Supports a subset of ANSI SGR colour codes, backspace, tab, newline,
+/// and scrolling.  An optional capture buffer records output for shell `>`
+/// redirection.
 pub struct Console {
     fb: Option<Framebuffer>,
     cursor_x: usize,
@@ -29,6 +44,14 @@ pub struct Console {
 }
 
 impl Console {
+    /// Create a new console backed by the given framebuffer.
+    ///
+    /// # Parameters
+    /// - `fb`: The framebuffer to render into.
+    ///
+    /// # Returns
+    /// A new [`Console`] with the cursor at the top-left and default colours
+    /// (white on black).
     pub fn new(fb: Framebuffer) -> Self {
         Self {
             fb: Some(fb),
@@ -44,6 +67,12 @@ impl Console {
         }
     }
 
+    /// Create a placeholder console with no framebuffer attached.
+    ///
+    /// Useful as a `const`-initialiser before the real framebuffer is available.
+    ///
+    /// # Returns
+    /// A [`Console`] that silently discards all output.
     #[allow(dead_code)]
     pub const fn empty() -> Self {
         Self {
@@ -60,6 +89,7 @@ impl Console {
         }
     }
 
+    /// Draw a solid block cursor at the current cursor position.
     pub fn draw_cursor(&mut self) {
         if let Some(ref mut fb) = self.fb {
             for row in 0..16usize {
@@ -70,6 +100,7 @@ impl Console {
         }
     }
 
+    /// Erase the cursor block at the current cursor position (overdraw with background colour).
     pub fn erase_cursor(&mut self) {
         if let Some(ref mut fb) = self.fb {
             for row in 0..16usize {
@@ -84,6 +115,7 @@ impl Console {
         }
     }
 
+    /// Clear the entire screen and reset the cursor to the top-left corner.
     pub fn clear(&mut self) {
         if let Some(ref mut fb) = self.fb {
             fb.clear(self.bg_color);
@@ -92,6 +124,14 @@ impl Console {
         self.cursor_y = 0;
     }
 
+    /// Write a single character to the console, processing ANSI escape sequences.
+    ///
+    /// Control characters (`\n`, `\r`, `\t`, `\x08` backspace) are handled
+    /// directly; printable characters are rendered to the framebuffer.  ANSI
+    /// SGR colour codes (`ESC[<n>m`) update the current foreground colour.
+    ///
+    /// # Parameters
+    /// - `c`: The character to write.
     pub fn write_char(&mut self, c: char) {
         match self.ansi_state {
             AnsiState::Normal => {
@@ -283,10 +323,23 @@ impl Write for Console {
 
 static CONSOLE: Once<Mutex<Console>> = Once::new();
 
+/// Initialise the global console with the given framebuffer.
+///
+/// Must be called once before any [`print!`] or [`println!`] macro is used.
+///
+/// # Parameters
+/// - `fb`: The framebuffer to render into.
+///
+/// # Returns
+/// A reference to the global [`Mutex<Console>`].
 pub fn init(fb: Framebuffer) -> &'static Mutex<Console> {
     CONSOLE.call_once(|| Mutex::new(Console::new(fb)))
 }
 
+/// Return a reference to the global console mutex.
+///
+/// # Panics
+/// - Panics if [`init`] has not been called yet.
 pub fn console() -> &'static Mutex<Console> {
     CONSOLE.get().expect("Console not initialized")
 }

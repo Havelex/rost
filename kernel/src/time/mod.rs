@@ -10,11 +10,19 @@ pub fn increment_ticks() {
     TICKS.fetch_add(1, Ordering::Relaxed);
 }
 
+/// Return the current system tick count.
+///
+/// Each tick corresponds to one PIT IRQ0 (100 Hz by default → 10 ms per tick).
+///
+/// # Returns
+/// The number of ticks elapsed since the system started.
 pub fn get_ticks() -> usize {
     TICKS.load(Ordering::Relaxed)
 }
 
-/// Retrieves the current tick count. This is a wrapper around the atomic load operation.
+/// Return the current tick count (alias for [`get_ticks`]).
+///
+/// Provided for callers that prefer the longer name.
 ///
 /// # Returns
 /// - The current number of ticks since the system started.

@@ -1,18 +1,30 @@
+//! Boot-time information collected from Limine bootloader responses.
+//!
+//! Defines the types used to pass framebuffer, memory-map, and kernel address
+//! information from the Limine bootloader into the kernel's [`init`](crate::init) function.
+
 use crate::boot::limine_helpers::{FB_REQUEST, HDDM_REQUEST, KERNEL_ADDRESS_REQUEST, MEM_MAP_REQUEST};
 use spin::Once;
 
+/// Maximum number of memory-map regions that the kernel will track.
 pub const MAX_REGIONS: usize = 128;
 
+/// A single entry from the bootloader's physical memory map.
 #[derive(Clone, Copy, Debug)]
 pub struct MemoryRegionInfo {
+    /// Physical base address of the region.
     pub base: usize,
+    /// Length of the region in bytes.
     pub length: usize,
+    /// Raw Limine memory-map type tag (use [`MemoryRegionKind`](crate::memory::regions::MemoryRegionKind) for interpretation).
     pub kind: u64,
 }
 
+/// A slice view over the boot-time memory map entries stored in the static `REGIONS` array.
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct MemMapInfo {
+    /// Slice of memory region descriptors provided by the bootloader.
     pub regions: &'static [MemoryRegionInfo],
 }
 
@@ -24,20 +36,30 @@ static mut REGIONS: [MemoryRegionInfo; MAX_REGIONS] = [MemoryRegionInfo {
 
 static MEMORY_MAP_INFO: Once<&'static [MemoryRegionInfo]> = Once::new();
 
+/// Raw framebuffer descriptor provided by the Limine bootloader.
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct FramebufferInfo {
+    /// Pointer to the first byte of the framebuffer in the kernel's virtual address space.
     pub addr: *mut u8,
+    /// Width of the framebuffer in pixels.
     pub width: usize,
+    /// Height of the framebuffer in pixels.
     pub height: usize,
+    /// Number of bytes per scanline (row stride).
     pub pitch: usize,
+    /// Bits per pixel.
     pub bpp: usize,
 }
 
+/// All boot-time information provided by the Limine bootloader, collected into a single struct.
 #[repr(C)]
 pub struct BootInfo {
+    /// Framebuffer descriptor, if Limine provided one.
     pub framebuffer: Option<FramebufferInfo>,
+    /// Physical memory map, if Limine provided one.
     pub memory_map: Option<MemMapInfo>,
+    /// Higher-half direct map offset (HHDM) provided by Limine.
     pub offset: Option<usize>,
     /// Physical base address of the kernel image (from Limine KernelAddressRequest).
     pub kernel_phys_base: Option<usize>,
@@ -46,6 +68,13 @@ pub struct BootInfo {
 }
 
 impl BootInfo {
+    /// Collect boot information from all active Limine requests.
+    ///
+    /// Panics if any mandatory Limine response is absent (framebuffer, memory
+    /// map, HHDM offset, or kernel address).
+    ///
+    /// # Returns
+    /// A fully populated [`BootInfo`] describing the system's boot environment.
     pub fn new() -> BootInfo {
         let hddm_response = HDDM_REQUEST
             .response()

@@ -1,3 +1,9 @@
+//! x86_64 Interrupt Descriptor Table (IDT) initialisation.
+//!
+//! Builds a 256-entry IDT populated from the `isr_stub_table` defined in
+//! `interrupts.S`, installs IST 1 for the double-fault handler, and loads
+//! the table with `lidt`.
+
 use core::arch::global_asm;
 
 use crate::error::Result;
@@ -55,6 +61,13 @@ struct IdtTable([IdtEntry; 256]);
 
 static mut IDT: IdtTable = IdtTable([IdtEntry::missing(); 256]);
 
+/// Initialise and load the IDT.
+///
+/// Populates entries 0-47 from `isr_stub_table`, sets IST 1 on entry 8
+/// (double-fault), and executes `lidt`.
+///
+/// # Returns
+/// - `Ok(())` on success (currently always succeeds).
 pub fn init() -> Result<()> {
     // Get a raw pointer to the inner array
     let idt_ptr = unsafe { &raw mut IDT.0 as *mut IdtEntry };

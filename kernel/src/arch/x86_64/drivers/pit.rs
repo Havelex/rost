@@ -1,3 +1,10 @@
+//! Programmable Interval Timer (PIT 8253/8254) driver.
+//!
+//! Programs PIT channel 0 in square-wave mode at [`TARGET_HZ`] Hz, then
+//! unmasks IRQ 0 so timer interrupts begin arriving.  Deliberately deferred
+//! until after PIC initialisation to prevent spurious firmware-default (~18 Hz)
+//! timer interrupts during early boot.
+
 use crate::{
     arch::x86_64::{asm::outb, cpu::interrupts::pic},
     error::Result,
@@ -14,6 +21,11 @@ const ACCESS_LOBYTE_HIBYTE: u8 = 0b00_11_00_00;
 const MODE_SQUARE_WAVE: u8 = 0b00_00_01_10;
 const TARGET_HZ: u32 = 100;
 
+/// Initialise PIT channel 0 in square-wave mode at [`TARGET_HZ`] Hz and
+/// unmask IRQ 0.
+///
+/// # Returns
+/// - `Ok(())` on success (currently always succeeds).
 pub fn init() -> Result<()> {
     let divisor = PIT_BASE_FREQUENCY / TARGET_HZ;
     let low_byte = (divisor & 0xFF) as u8;

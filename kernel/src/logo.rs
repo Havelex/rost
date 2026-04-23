@@ -1,7 +1,9 @@
-/// Prints the super cool rOSt logo of the application in the terminal.
-/// btw. it's an Iron (III) Oxide molecule, in case you were wondering.
-/// Get it? rOSt? Rust? Iron Oxide? Yeah, I know, it's a stretch, but I thought it was clever. :)
+//! ASCII-art logo renderer.
+//!
+//! The logo depicts an Iron(III) Oxide (Fe₂O₃) molecule — a nod to the
+//! project name *rOSt* ("Rust", as in iron oxide).
 
+/// Print the rOSt logo to the console using ANSI colour codes.
 pub fn print_logo() {
     print!("\x1b[91m");
     println!(

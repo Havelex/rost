@@ -5,12 +5,15 @@ use core::panic::PanicInfo;
 
 use crate::memory::{alloc::MemoryFault, paging::PageFault};
 
-/// An Enum representing the type of fault that occurred in the kernel.,
+/// A categorised kernel fault used as a diagnostic discriminant in panic messages.
 #[allow(dead_code)]
 #[derive(Debug)]
 pub enum KernelFault {
+    /// A physical memory allocation or frame-tracking error.
     Memory(MemoryFault),
+    /// A virtual-memory mapping or paging error.
     Paging(PageFault),
+    /// A generic kernel panic with a static description string.
     Panic(&'static str),
 }
 

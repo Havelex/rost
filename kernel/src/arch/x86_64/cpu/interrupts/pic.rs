@@ -1,3 +1,15 @@
+//! 8259A Programmable Interrupt Controller (PIC) driver.
+//!
+//! Remaps the legacy PIC so IRQs 0-15 appear at interrupt vectors 0x20-0x2F
+//! (above the CPU exception range), and provides functions to mask/unmask
+//! individual IRQ lines and to send End-of-Interrupt (EOI) signals.
+//!
+//! # Usage notes
+//! - Once the APIC is active, changing PIC IMR bits without also handling the
+//!   corresponding APIC routing can cause spurious interrupts or missed EOIs.
+//! - IRQ lines should be unmasked only after the corresponding driver is fully
+//!   initialised.
+
 use crate::{
     arch::x86_64::asm::{inb, outb},
     error::Result,
@@ -16,8 +28,11 @@ const ICW1_ICW4: u8 = 0x01;
 const ICW4_8086: u8 = 0x01;
 
 const CASCADE_IRQ: u8 = 2;
+/// PIT timer IRQ line (IRQ 0).
 pub const IRQ_PIT_TIMER: u8 = 0;
+/// PS/2 keyboard IRQ line (IRQ 1).
 pub const IRQ_KEYBOARD: u8 = 1;
+/// PIC2 cascade IRQ line (IRQ 2 on PIC1).
 pub const IRQ_CASCADE: u8 = 2;
 
 #[allow(dead_code)]
@@ -87,6 +102,14 @@ pub fn clear_mask(mut irq_line: u8) {
     }
 }
 
+/// Initialise both PIC chips.
+///
+/// Remaps IRQ 0-7 to vectors 0x20-0x27 and IRQ 8-15 to vectors 0x28-0x2F,
+/// then masks all IRQ lines.  Individual lines must be unmasked explicitly
+/// after their drivers are ready.
+///
+/// # Returns
+/// - `Ok(())` on success (currently always succeeds).
 pub fn init() -> Result<()> {
     unsafe {
         remap_pic(0x20, 0x28);
@@ -97,6 +120,12 @@ pub fn init() -> Result<()> {
     Ok(())
 }
 
+/// Send an End-of-Interrupt signal to the PIC(s) for `irq`.
+///
+/// Sends EOI to PIC2 as well if `irq` ≥ 8 (cascade IRQ).
+///
+/// # Parameters
+/// - `irq`: The IRQ number (0-based) that was serviced.
 pub fn send_eoi(irq: u8) {
     if irq >= 8 {
         unsafe { outb(PIC2_COMMAND, PIC_EOI) };
@@ -130,6 +159,7 @@ pub unsafe fn pic_get_isr() -> u16 {
     unsafe { pic_get_irq_reg(PIC_READ_ISR) }
 }
 
+/// Mask all IRQ lines on both PIC chips (disable all hardware interrupts via PIC).
 pub fn disable() {
     unsafe {
         // Writing 0xFF to the data ports masks all interrupts on the 8259 PIC

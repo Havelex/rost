@@ -1,3 +1,8 @@
+//! High Precision Event Timer (HPET) driver (not yet implemented).
+//!
+//! This module is a placeholder.  The HPET initialisation code is commented
+//! out until ACPI table parsing is available to locate the HPET base address.
+
 // pub struct Hpet {
 //     base_addr: usize,
 //     pub clk_period: u32, // Period in femtoseconds

@@ -1,3 +1,9 @@
+//! Built-in shell command handlers and the global command registry.
+//!
+//! Each command is a private handler function registered as a [`Command`]
+//! entry in the [`COMMANDS`] static slice.  The shell's dispatcher calls the
+//! matching handler with the tokenised argument list.
+
 use crate::shell::command::{Command, CommandResult};
 use crate::vfs::{InodeKind, VFS, VfsError};
 

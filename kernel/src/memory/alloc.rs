@@ -14,10 +14,15 @@ pub const FRAME_SIZE: usize = 0x1000;
 #[allow(dead_code)]
 #[derive(Debug)]
 pub enum MemoryFault {
+    /// A frame index exceeded the allocator's tracked range.
     FrameIndexOutOfBounds { idx: usize, max: usize },
+    /// Attempted to allocate a frame that was already allocated.
     DoubleAllocation { idx: usize },
+    /// Attempted to free a frame that was already free.
     DoubleFree { idx: usize },
+    /// No free frames remain in the allocator.
     OutOfMemory,
+    /// The frame allocator has not been initialised yet.
     NoAllocator,
 }
 
@@ -71,12 +76,31 @@ impl Frame {
     }
 }
 
+/// A bitmap-based physical frame allocator.
+///
+/// Manages a contiguous range of 4 KiB physical frames.  Each bit in the
+/// backing bitmap represents one frame: `0` = free, `1` = allocated/reserved.
 pub struct FrameAllocator {
     bitmap: &'static mut [u64],
     total_frames: usize,
 }
 
 impl FrameAllocator {
+    /// Create a new allocator backed by `bitmap`.
+    ///
+    /// All bitmap words are zeroed (all frames initially free).  If
+    /// `memory_size` would require more frames than the bitmap can represent
+    /// the frame count is silently clamped to the bitmap capacity.
+    ///
+    /// # Parameters
+    /// - `bitmap`: A mutable reference to the static array used as the backing bitmap.
+    /// - `memory_size`: Total physical memory size in bytes; determines how many frames to manage.
+    ///
+    /// # Returns
+    /// A new [`FrameAllocator`] ready for use.
+    ///
+    /// # Safety
+    /// The caller must ensure `bitmap` lives for `'static` and is not shared.
     pub fn new(bitmap: &'static mut [u64], memory_size: usize) -> Self {
         let max_frames = bitmap.len() * 64;
         let requested_frames = memory_size / FRAME_SIZE;
@@ -101,11 +125,30 @@ impl FrameAllocator {
         }
     }
 
+    /// Reserve a single frame, marking it as allocated.
+    ///
+    /// # Parameters
+    /// - `frame`: The frame to reserve.
+    ///
+    /// # Returns
+    /// - `Ok(())` on success.
+    /// - `Err(MemoryFault::DoubleAllocation)` if the frame was already allocated.
     #[allow(dead_code)]
     pub fn reserve(&mut self, frame: Frame) -> Result<(), MemoryFault> {
         self.mark_used(frame.index())
     }
 
+    /// Reserve every frame in the inclusive physical address range `[start, end]`.
+    ///
+    /// Addresses are aligned down to frame boundaries before marking.
+    ///
+    /// # Parameters
+    /// - `start`: Physical start address of the range to reserve.
+    /// - `end`: Physical end address (inclusive) of the range to reserve.
+    ///
+    /// # Returns
+    /// - `Ok(())` if all frames were successfully reserved.
+    /// - `Err(MemoryFault)` if any frame could not be reserved.
     pub fn reserve_range(&mut self, start: usize, end: usize) -> Result<(), MemoryFault> {
         let sidx = Frame::new(start).index();
         let eidx = Frame::new(end).index();
@@ -117,6 +160,11 @@ impl FrameAllocator {
         Ok(())
     }
 
+    /// Allocate the lowest free physical frame.
+    ///
+    /// # Returns
+    /// - `Ok(Frame)` containing the allocated frame's physical address.
+    /// - `Err(MemoryFault::OutOfMemory)` if no free frames remain.
     pub fn alloc(&mut self) -> Result<Frame, MemoryFault> {
         for idx in 0..self.total_frames {
             if !self.is_used(idx) {
@@ -128,6 +176,14 @@ impl FrameAllocator {
         Err(MemoryFault::OutOfMemory)
     }
 
+    /// Free a previously allocated frame.
+    ///
+    /// # Parameters
+    /// - `frame`: The frame to free.
+    ///
+    /// # Returns
+    /// - `Ok(())` on success.
+    /// - `Err(MemoryFault::DoubleFree)` if the frame was already free.
     #[allow(dead_code)]
     pub fn free(&mut self, frame: Frame) -> Result<(), MemoryFault> {
         self.mark_free(frame.index())

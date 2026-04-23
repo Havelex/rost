@@ -1,3 +1,16 @@
+//! Console output macros.
+//!
+//! These macros forward formatted output to the global [`Console`](crate::console::writer::Console)
+//! instance protected by a [`spin::Mutex`].
+//!
+//! # Safety
+//! All macros acquire the console mutex.  They **must not** be called from
+//! interrupt handlers — doing so will deadlock on a single-CPU system if the
+//! main thread already holds the lock.
+
+/// Print a formatted string to the console without a trailing newline.
+///
+/// Acquires the global console mutex for the duration of the write.
 #[macro_export]
 macro_rules! print {
     ($($arg:tt)*) => {{
@@ -7,6 +20,9 @@ macro_rules! print {
     }};
 }
 
+/// Print a formatted string to the console followed by a newline.
+///
+/// Acquires the global console mutex for the duration of the write.
 #[macro_export]
 macro_rules! println {
     () => { $crate::print!("\n") };
@@ -15,6 +31,10 @@ macro_rules! println {
     }};
 }
 
+/// Clear the console screen.
+///
+/// Fills the framebuffer with the current background colour and resets the
+/// cursor to the top-left corner.
 #[macro_export]
 macro_rules! cls {
     () => {
@@ -22,6 +42,7 @@ macro_rules! cls {
     };
 }
 
+/// Draw the text cursor at the current cursor position.
 #[macro_export]
 macro_rules! draw_cursor {
     () => {
@@ -29,6 +50,7 @@ macro_rules! draw_cursor {
     };
 }
 
+/// Erase the text cursor at the current cursor position.
 #[macro_export]
 macro_rules! erase_cursor {
     () => {
