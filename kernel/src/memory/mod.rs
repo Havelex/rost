@@ -10,11 +10,16 @@ use crate::{
     memory::regions::MemMap,
 };
 
+/// Physical frame allocator types and faults.
 pub mod alloc;
+/// Architecture-independent paging abstractions.
 pub mod paging;
+/// Global physical frame allocator bootstrap and accessors.
 pub mod phys;
+/// Bootloader memory-map conversion and region descriptors.
 pub mod regions;
 
+/// Internal memory helpers not exported outside this module.
 mod mem;
 
 static MEM_MAP_ONCE: Once<MemMap> = Once::new();

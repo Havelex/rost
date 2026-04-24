@@ -12,12 +12,19 @@ use crate::{
     init_step,
 };
 
+/// Low-level x86_64 assembly helpers (port I/O and control-register access).
 pub(crate) mod asm;
+/// x86_64 CPU implementation and interrupt entry plumbing.
 pub mod cpu;
+/// x86_64 platform drivers (PIT/HPET and related setup).
 pub mod drivers;
+/// Global Descriptor Table setup.
 mod gdt;
+/// x86_64 paging and memory-region helpers.
 mod memory;
+/// Model Specific Register (MSR) access helpers.
 pub mod msr;
+/// Task State Segment setup and backing storage.
 mod tss;
 
 /// Zero-sized marker type that implements [`Architecture`] for the x86_64 target.

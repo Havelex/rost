@@ -24,6 +24,7 @@ static HHDM_OFFSET: AtomicUsize = AtomicUsize::new(0);
 static TOTAL_PHYS: AtomicUsize = AtomicUsize::new(0);
 
 bitflags! {
+    /// x86_64 page-table entry flags used by the kernel mapper.
     #[derive(Clone, Copy, PartialEq, Eq)]
     pub struct PageFlags: u64 {
         const PRESENT        = 1 << 0;
@@ -40,6 +41,7 @@ bitflags! {
 
 #[repr(transparent)]
 #[derive(Clone, Copy)]
+/// Raw x86_64 page-table entry wrapper.
 pub struct PageTableEntry(u64);
 
 impl PageTableEntry {
@@ -48,24 +50,29 @@ impl PageTableEntry {
         Self(0)
     }
 
+    /// Return `true` when the PRESENT bit is set.
     pub fn is_present(&self) -> bool {
         self.0 & 1 != 0
     }
 
+    /// Return the physical address payload of this entry.
     pub fn addr(&self) -> usize {
         (self.0 as usize) & 0x000f_ffff_ffff_f000
     }
 
+    /// Set this entry to map `addr` with `flags`.
     pub fn set(&mut self, addr: usize, flags: PageFlags) {
         self.0 = (addr as u64) | flags.bits();
     }
 
+    /// Clear this entry to the non-present state.
     pub fn clear(&mut self) {
         self.0 = 0;
     }
 }
 
 #[repr(C, align(0x1000))]
+/// One 4 KiB x86_64 page table containing 512 entries.
 pub struct PageTable {
     pub entries: [PageTableEntry; TABLE_ENTRIES],
 }
@@ -78,6 +85,7 @@ impl PageTable {
         }
     }
 
+    /// Zero all entries in this table.
     pub fn zero(&mut self) {
         for entry in self.entries.iter_mut() {
             entry.clear();
@@ -86,28 +94,34 @@ impl PageTable {
 }
 
 impl Page {
+    /// Return the PML4 index for this virtual page.
     pub fn pml4_index(self) -> usize {
         (self.addr() >> 39) & 0x1ff
     }
 
+    /// Return the PDPT index for this virtual page.
     pub fn pdpt_index(self) -> usize {
         (self.addr() >> 30) & 0x1ff
     }
 
+    /// Return the PD index for this virtual page.
     pub fn pd_index(self) -> usize {
         (self.addr() >> 21) & 0x1ff
     }
 
+    /// Return the PT index for this virtual page.
     pub fn pt_index(self) -> usize {
         (self.addr() >> 12) & 0x1ff
     }
 }
 
+/// x86_64 implementation of the architecture-independent [`Mapper`] trait.
 pub struct X86Mapper {
     pml4: &'static mut PageTable,
 }
 
 impl X86Mapper {
+    /// Create a mapper rooted at `pml4`.
     pub fn new(pml4: &'static mut PageTable) -> Self {
         Self { pml4 }
     }
@@ -207,6 +221,7 @@ pub fn init(pml4: &'static mut PageTable) {
     MAPPER.call_once(|| Mutex::new(X86Mapper::new(pml4)));
 }
 
+/// Return the global x86_64 mapper singleton.
 pub fn mapper() -> &'static Mutex<X86Mapper> {
     MAPPER.get().expect("Mapper not initialized")
 }
@@ -301,6 +316,7 @@ fn map_4kib(
 /// memory map does not contain a `KernelAndModules` entry covering it.
 /// 8 MiB is a generous upper bound for a debug build of this kernel.
 const MIN_KERNEL_MAP_SIZE: usize = 8 * 1024 * 1024;
+/// Build and activate the x86_64 page tables, then install the global mapper.
 pub fn init_paging(
     hhdm_offset: usize,
     kernel_phys_base: usize,

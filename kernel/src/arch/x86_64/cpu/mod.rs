@@ -1,5 +1,6 @@
 use crate::cpu::Cpu;
 
+/// x86_64 interrupt controller and ISR glue implementation.
 pub mod interrupts;
 
 /// Zero-sized struct that implements [`Cpu`] for the x86_64 architecture.

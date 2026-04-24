@@ -3,7 +3,9 @@
 //! This module collects all Limine bootloader responses and packages them into
 //! a [`BootInfo`] struct that is passed to [`crate::init`].
 
+/// Boot-time information structures assembled from Limine responses.
 mod boot_info;
+/// Raw static Limine request objects consumed by [`boot_info`].
 mod limine_helpers;
 
 pub use boot_info::*;

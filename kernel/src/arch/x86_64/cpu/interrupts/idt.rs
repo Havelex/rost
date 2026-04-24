@@ -34,6 +34,10 @@ impl IdtEntry {
         }
     }
 
+    /// Populate this IDT entry with the given handler address.
+    ///
+    /// The entry is configured as a present interrupt gate in kernel code
+    /// segment `0x08` and uses IST 0 by default.
     pub fn set_handler(&mut self, handler: *const ()) {
         let addr = handler as u64;
         self.offset_low = addr as u16;

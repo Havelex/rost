@@ -5,7 +5,9 @@
 
 use crate::{error::Result, init_step};
 
+/// High Precision Event Timer (HPET) support.
 pub mod hpet;
+/// Programmable Interval Timer (PIT) support.
 pub mod pit;
 
 /// Initialise all x86_64 hardware drivers.

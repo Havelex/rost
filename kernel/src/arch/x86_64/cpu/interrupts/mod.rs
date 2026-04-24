@@ -10,8 +10,11 @@ use crate::{
 /// Vectors 0–31 are reserved for CPU exceptions; vectors 32+ map to IRQ lines.
 const HARDWARE_IRQ_VECTOR_BASE: u64 = 32;
 
+/// Local APIC / x2APIC detection, setup, and EOI routing.
 pub mod apic;
+/// IDT descriptor layout and `lidt` installation.
 mod idt;
+/// Legacy 8259 PIC remap/mask/EOI support.
 pub mod pic;
 
 /// CPU register state captured by the ISR stub before calling the Rust handler.

@@ -65,28 +65,3 @@ pub fn handle_generic_exception(info: GenericExceptionInfo) {
         _ => panic!("Unhandled exception at {:#x}", info.rip),
     }
 }
-    match info.exception {
-        ExceptionType::Breakpoint => {
-            log_info!("Stopping at breakpoint: RIP={:#x}", info.rip);
-        }
-        ExceptionType::DoubleFault => {
-            panic!("Double Fault at {:#x}", info.rip)
-        }
-        ExceptionType::PageFault { addr, error_code } => {
-            panic!(
-                "PAGE FAULT at {:#x}\nAttempted to access: {:#x}\nError Flags: {:#b}",
-                info.rip, addr, error_code
-            );
-        }
-        ExceptionType::GeneralProtectionFault(code) => {
-            panic!("GPF at {:#x} with error code {:#x}", info.rip, code);
-        }
-        ExceptionType::Unknown(vector) => {
-            panic!(
-                "Unkown CPU exception at {:#x} with vector {:#x}",
-                info.rip, vector
-            )
-        }
-        _ => panic!("Unhandled exception at {:#x}", info.rip),
-    }
-}
