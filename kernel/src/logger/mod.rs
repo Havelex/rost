@@ -6,8 +6,10 @@
 //! [`log_dbug!`] macros rather than calling [`log`] directly.
 
 pub mod indent;
+/// Log-level enum and formatting helpers.
 pub mod level;
 #[macro_use]
+/// Logging macros (`log_info!`, `log_warn!`, etc.).
 pub mod macros;
 
 pub use self::level::LogLevel;

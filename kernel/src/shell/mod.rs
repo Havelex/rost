@@ -1,7 +1,9 @@
 //! Command line interface for the shell. Handles input, editing, and command execution.
 
 mod command;
+/// Built-in shell command implementations and registration table.
 mod commands;
+/// Fixed-size line-edit buffer used by the shell REPL.
 mod input_buffer;
 
 use command::CommandResult;

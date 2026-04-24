@@ -6,7 +6,10 @@
 //! macros.
 
 mod font;
+/// Framebuffer pixel access primitives used by the text console.
 pub(crate) mod framebuffer;
 #[macro_use]
+/// User-facing console printing and control macros.
 pub mod macros;
+/// Stateful console writer implementation.
 pub(crate) mod writer;

@@ -15,20 +15,33 @@ use crate::{
 };
 
 #[macro_use]
+/// Kernel console backend and printing macros.
 pub(crate) mod console;
 #[macro_use]
+/// Kernel logger backend and logging macros.
 pub(crate) mod logger;
 #[macro_use]
+/// Keyboard input helpers and keyboard-related macros.
 pub(crate) mod keyboard;
+/// Architecture abstraction layer and current target implementation.
 pub(crate) mod arch;
+/// Bootloader request handling and boot info assembly.
 pub(crate) mod boot;
+/// CPU abstraction and interrupt dispatch logic.
 pub(crate) mod cpu;
+/// Shared kernel error types and `Result` alias.
 pub(crate) mod error;
+/// Boot logo renderer.
 mod logo;
+/// Physical and virtual memory management.
 pub(crate) mod memory;
+/// Kernel panic handler and fault categorization.
 pub(crate) mod panic;
+/// Interactive shell and built-in command dispatcher.
 pub(crate) mod shell;
+/// Tick-based timekeeping utilities.
 pub(crate) mod time;
+/// In-memory virtual file system.
 pub(crate) mod vfs;
 
 /// Collects boot information from the bootloader and returns it as a [`BootInfo`](boot::BootInfo).

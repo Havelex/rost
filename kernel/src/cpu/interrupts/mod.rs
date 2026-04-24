@@ -9,7 +9,9 @@ use crate::cpu::interrupts::{
     hardware::handle_hardware_interrupt,
 };
 
+/// CPU-exception definitions and generic exception dispatcher.
 pub mod exceptions;
+/// Hardware IRQ dispatcher and device-specific interrupt handling.
 pub mod hardware;
 
 /// Classifies an interrupt as either a CPU exception or a hardware IRQ.

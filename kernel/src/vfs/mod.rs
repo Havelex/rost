@@ -119,6 +119,9 @@ impl Inode {
 
 // ── Vfs ───────────────────────────────────────────────────────────────────────
 
+/// In-memory virtual file system state.
+///
+/// Stores all inode metadata and tracks the current working directory.
 pub struct Vfs {
     /// The array of all inodes (files and directories) in the file system.
     pub inodes: [Inode; MAX_INODES],
