@@ -2,11 +2,11 @@ use spin::Mutex;
 
 use crate::{
     arch::{
-        Architecture, Cpu,
         x86_64::{
-            cpu::{X86Cpu, interrupts},
-            memory::paging::{X86Mapper, mapper},
+            cpu::{interrupts, X86Cpu},
+            memory::paging::{mapper, X86Mapper},
         },
+        Architecture, Cpu,
     },
     error::Result,
     init_step,
@@ -35,7 +35,8 @@ impl Architecture for X86_64 {
     fn init_early() -> Result<()> {
         use cpu::X86CpuExt;
         X86Cpu::enable_sse();
-        init_step("Initializing TSS", "TSS initialized", tss::init)?;
+        // Legacy
+        // init_step("Initializing TSS", "TSS initialized", tss::init)?;
         init_step("Initializing GDT", "GDT initialized", gdt::init)?;
         Ok(())
     }
