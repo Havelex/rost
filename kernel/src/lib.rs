@@ -40,11 +40,16 @@ pub use boot::init as boot;
 /// # Parameters
 /// - `info`: The boot information provided by the bootloader.
 pub fn init(info: BootInfo) -> ! {
+    Arch::disable_interrupts();
     let fb_info = info.framebuffer.unwrap();
 
     console::writer::init(fb_info.into());
     log_info!("Initializing Kernel...");
+    log_dbug!("Physical: 0x{:x}", info.kernel_phys_base.unwrap());
+    log_dbug!("Virtual: 0x{:x}", info.kernel_virt_base.unwrap());
+    log_dbug!("HDDM: 0x{:x}", info.offset.unwrap());
     push_indent();
+    // Safety first
     init_step(
         "Initializing early architecture",
         "Early architecture initialized",
@@ -113,6 +118,7 @@ pub fn init(info: BootInfo) -> ! {
     sleep(1000);
     println!("Done!");
     sleep(1000);
+    wait_for_key!();
     cls!();
     print_logo();
 
