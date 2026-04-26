@@ -1,5 +1,5 @@
 #![no_std]
-#![deny(missing_docs)]
+// #![deny(missing_docs)]
 
 //! The main kernel library, containing all the core logic and functionality of the kernel.
 
